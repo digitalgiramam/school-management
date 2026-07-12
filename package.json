@@ -1,0 +1,15 @@
+{
+  "name": "school-management",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "npm ci --prefix backend && npm ci --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "start": "node backend/src/server.js",
+    "postinstall": "npx --prefix backend prisma generate"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

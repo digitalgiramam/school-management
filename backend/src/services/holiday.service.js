@@ -1,0 +1,29 @@
+const prisma = require('../config/prisma');
+const { AppError } = require('../utils/errors');
+const { parsePaginationParams } = require('../utils/pagination');
+
+const service = {
+  async getAll(query) {
+    const { page, limit, skip, search, sortBy, sortOrder } = parsePaginationParams(query);
+    const [items, total] = await Promise.all([
+      prisma.holiday.findMany({ skip, take: limit, orderBy: { createdAt: 'desc' } }),
+      prisma.holiday.count(),
+    ]);
+    return { data: items, total, page, limit };
+  },
+  async getById(id) {
+    const item = await prisma.holiday.findUnique({ where: { id } });
+    if (!item) throw new AppError('Not found', 404);
+    return item;
+  },
+  async create(data) {
+    return prisma.holiday.create({ data });
+  },
+  async update(id, data) {
+    return prisma.holiday.update({ where: { id }, data });
+  },
+  async remove(id) {
+    return prisma.holiday.delete({ where: { id } });
+  },
+};
+module.exports = service;
