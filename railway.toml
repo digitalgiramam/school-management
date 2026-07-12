@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm install --prefix backend --legacy-peer-deps && npm install --prefix frontend --legacy-peer-deps && npm run build --prefix frontend && npx --prefix backend prisma generate"
+buildCommand = "npm install --prefix backend --legacy-peer-deps && npm install --prefix frontend --legacy-peer-deps && npm run build --prefix frontend && cd backend && npx prisma generate"
 
 [deploy]
 startCommand = "node backend/src/server.js"
