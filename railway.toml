@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm ci --prefix backend && npm ci --prefix frontend && npm run build --prefix frontend && npx --prefix backend prisma generate"
+buildCommand = "npm ci --prefix backend && npm install --prefix frontend && npm run build --prefix frontend && npx --prefix backend prisma generate"
 
 [deploy]
 startCommand = "node backend/src/server.js"
