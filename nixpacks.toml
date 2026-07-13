@@ -1,17 +1,1 @@
-[phases.setup]
-nixPkgs = ["nodejs_20", "npm-9_x"]
-
-[phases.install]
-cmds = [
-  "npm install --prefix backend --legacy-peer-deps",
-  "NODE_ENV=development npm install --prefix frontend --legacy-peer-deps"
-]
-
-[phases.build]
-cmds = [
-  "npm run build --prefix frontend",
-  "cd backend && npx prisma generate"
-]
-
-[start]
-cmd = "node backend/src/server.js"
+# This file is intentionally empty — configuration moved to railway.toml
