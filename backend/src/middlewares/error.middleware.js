@@ -80,6 +80,7 @@ const errorHandler = (err, req, res, next) => {
   }
 
   // ── Unexpected error ─────────────────────────────────────────
+  console.error('=== UNHANDLED ERROR ===', err.name, err.message, err.stack);
   logger.error({ message: err.message || 'Internal Server Error', requestId, stack: err.stack });
   return res.status(500).json({
     success: false,
