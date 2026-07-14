@@ -60,6 +60,9 @@ const departmentRoutes   = require('./routes/department.routes');
 
 const app = express();
 
+// Trust Vercel/Railway reverse proxy so express-rate-limit and req.ip work correctly
+app.set('trust proxy', 1);
+
 // ── Request ID ──────────────────────────────────────────────────
 app.use(requestId);
 
