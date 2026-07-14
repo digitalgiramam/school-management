@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "NODE_ENV=development npm install --prefix frontend --legacy-peer-deps && npm run build --prefix frontend && npm install --prefix backend --legacy-peer-deps && npm run generate --prefix backend",
+  "buildCommand": "NODE_ENV=development npm install --prefix frontend --legacy-peer-deps && npm run build --prefix frontend && npm install --prefix backend --legacy-peer-deps",
   "outputDirectory": "frontend/dist",
   "framework": null,
   "functions": {
