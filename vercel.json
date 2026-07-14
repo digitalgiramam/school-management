@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "NODE_ENV=development npm install --prefix frontend --legacy-peer-deps && npm run build --prefix frontend && npm install --prefix backend --legacy-peer-deps && cd backend && npx prisma generate",
+  "buildCommand": "NODE_ENV=development npm install --prefix frontend --legacy-peer-deps && npm run build --prefix frontend && npm install --prefix backend --legacy-peer-deps && cd backend && ./node_modules/.bin/prisma generate",
   "outputDirectory": "frontend/dist",
   "framework": null,
   "functions": {
