@@ -1,6 +1,4 @@
 // Vercel Serverless Function entry point.
-// Vercel automatically injects env vars in production.
-// For local `vercel dev`, dotenv loads backend/.env.
-require('dotenv').config({ path: require('path').join(__dirname, '..', 'backend', '.env') });
-
+// Vercel injects env vars automatically — no dotenv needed.
+// For local dev use `vercel dev` which reads .env.vercel.local
 module.exports = require('../backend/src/app');
