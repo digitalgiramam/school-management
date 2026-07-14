@@ -1,4 +1,4 @@
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const logger = require('../config/logger');
 
 /**
@@ -9,7 +9,7 @@ const logger = require('../config/logger');
  * distributed tracing from a gateway), otherwise a UUID is generated.
  */
 const requestId = (req, res, next) => {
-  req.id = req.headers['x-request-id'] || uuidv4();
+  req.id = req.headers['x-request-id'] || randomUUID();
   res.setHeader('X-Request-ID', req.id);
   next();
 };
