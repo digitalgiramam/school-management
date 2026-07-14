@@ -14,9 +14,11 @@ const { errorHandler, notFound } = require('./middlewares/error.middleware');
 const { requestId, requestLogger } = require('./middlewares/requestLogger.middleware');
 
 // ── Process-level exception / rejection handlers ─────────────────
+// In Vercel serverless, never call process.exit() — it causes FUNCTION_INVOCATION_FAILED.
+// On Railway/local, exit so the process manager can restart cleanly.
 process.on('uncaughtException', (err) => {
-  logger.error({ message: 'UNCAUGHT EXCEPTION — process will exit', error: err.message, stack: err.stack });
-  process.exit(1);
+  logger.error({ message: 'UNCAUGHT EXCEPTION', error: err.message, stack: err.stack });
+  if (!process.env.VERCEL) process.exit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
