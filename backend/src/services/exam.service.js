@@ -26,13 +26,34 @@ const examService = {
   async create(data) {
     const { subjects, ...examData } = data;
     return prisma.exam.create({
-      data: { ...examData, ...(subjects && { subjects: { create: subjects } }) },
+      data: {
+        ...examData,
+        startDate: new Date(examData.startDate),
+        endDate: new Date(examData.endDate),
+        ...(subjects && {
+          subjects: {
+            create: subjects.map((s) => ({
+              ...s,
+              date: new Date(s.date),
+              maxMark: parseFloat(s.maxMark),
+              passMark: parseFloat(s.passMark),
+            })),
+          },
+        }),
+      },
       include: { examType: true, subjects: { include: { subject: true } } },
     });
   },
 
   async update(id, data) {
-    return prisma.exam.update({ where: { id }, data });
+    return prisma.exam.update({
+      where: { id },
+      data: {
+        ...data,
+        ...(data.startDate && { startDate: new Date(data.startDate) }),
+        ...(data.endDate && { endDate: new Date(data.endDate) }),
+      },
+    });
   },
 
   async remove(id) {
@@ -51,11 +72,16 @@ const examService = {
       return gs ? { grade: gs.grade, gradePoint: gs.gradePoint } : { grade: 'F', gradePoint: 0 };
     };
     const upserts = marksData.map((m) => {
-      const { grade, gradePoint } = m.isAbsent ? { grade: 'AB', gradePoint: 0 } : calculateGrade(m.marksObtained, examSubject.maxMark);
+      const isAbsent = m.isAbsent === true || m.isAbsent === 'true';
+      const marksObtained = m.marksObtained !== undefined && m.marksObtained !== null
+        ? parseFloat(m.marksObtained) : null;
+      const { grade, gradePoint } = isAbsent
+        ? { grade: 'AB', gradePoint: 0 }
+        : calculateGrade(marksObtained, examSubject.maxMark);
       return prisma.mark.upsert({
         where: { studentId_examSubjectId: { studentId: m.studentId, examSubjectId } },
-        update: { marksObtained: m.marksObtained, grade, gradePoint, isAbsent: m.isAbsent, remarks: m.remarks },
-        create: { studentId: m.studentId, examSubjectId, marksObtained: m.marksObtained, grade, gradePoint, isAbsent: m.isAbsent, remarks: m.remarks },
+        update: { marksObtained, grade, gradePoint, isAbsent, remarks: m.remarks },
+        create: { studentId: m.studentId, examSubjectId, marksObtained, grade, gradePoint, isAbsent, remarks: m.remarks },
       });
     });
     return prisma.$transaction(upserts);

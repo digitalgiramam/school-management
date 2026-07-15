@@ -130,7 +130,7 @@ const teacherService = {
         ...(dateOfBirth && { dateOfBirth: new Date(dateOfBirth) }),
         ...(gender && { gender }),
         ...(joiningDate && { joiningDate: new Date(joiningDate) }),
-        ...(isActive !== undefined && { isActive }),
+        ...(isActive !== undefined && { isActive: isActive === true || isActive === 'true' }),
       },
       include: {
         user: { select: { email: true, profilePhoto: true } },

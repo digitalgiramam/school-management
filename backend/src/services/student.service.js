@@ -73,6 +73,12 @@ const studentService = {
         data: {
           ...studentData,
           userId: user.id,
+          // Coerce types — form data arrives as strings
+          ...(studentData.dateOfBirth && { dateOfBirth: new Date(studentData.dateOfBirth) }),
+          ...(studentData.admissionDate && { admissionDate: new Date(studentData.admissionDate) }),
+          ...(studentData.isActive !== undefined && {
+            isActive: studentData.isActive === true || studentData.isActive === 'true',
+          }),
           ...(sectionId && { sectionId }),
           ...(parentId && { parentId }),
         },
@@ -103,7 +109,14 @@ const studentService = {
 
     return prisma.student.update({
       where: { id },
-      data: studentData,
+      data: {
+        ...studentData,
+        ...(studentData.dateOfBirth && { dateOfBirth: new Date(studentData.dateOfBirth) }),
+        ...(studentData.admissionDate && { admissionDate: new Date(studentData.admissionDate) }),
+        ...(studentData.isActive !== undefined && {
+          isActive: studentData.isActive === true || studentData.isActive === 'true',
+        }),
+      },
       include: { section: true, user: { select: { email: true } } },
     });
   },

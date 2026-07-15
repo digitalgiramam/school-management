@@ -189,7 +189,16 @@ const settingsService = {
   },
 
   async createAcademicYear(data) {
-    return prisma.academicYear.create({ data });
+    return prisma.academicYear.create({
+      data: {
+        ...data,
+        startDate: new Date(data.startDate),
+        endDate: new Date(data.endDate),
+        ...(data.isCurrent !== undefined && {
+          isCurrent: data.isCurrent === true || data.isCurrent === 'true',
+        }),
+      },
+    });
   },
 
   async setCurrentAcademicYear(id) {

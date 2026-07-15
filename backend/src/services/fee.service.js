@@ -23,13 +23,16 @@ const feeService = {
     }
     const { feeCategoryName, ...rest } = data;
     return prisma.feeStructure.create({
-      data: { ...rest, feeCategoryId },
+      data: { ...rest, feeCategoryId, amount: parseFloat(rest.amount) },
       include: { feeCategory: true, class: true },
     });
   },
 
   async updateStructure(id, data) {
-    return prisma.feeStructure.update({ where: { id }, data });
+    return prisma.feeStructure.update({
+      where: { id },
+      data: { ...data, ...(data.amount !== undefined && { amount: parseFloat(data.amount) }) },
+    });
   },
 
   async deleteStructure(id) {

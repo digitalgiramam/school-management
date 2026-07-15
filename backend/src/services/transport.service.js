@@ -52,7 +52,10 @@ const transportService = {
       data: {
         busNumber, registrationNo,
         capacity: capacity ? parseInt(capacity) : undefined,
-        isActive, gpsDeviceId,
+        gpsDeviceId,
+        ...(isActive !== undefined && {
+          isActive: isActive === true || isActive === 'true',
+        }),
       },
     });
   },
