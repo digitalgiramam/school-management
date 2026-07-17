@@ -221,12 +221,13 @@ model Section {
   capacity  Int      @default(40)
   createdAt DateTime @default(now())
 
-  class      Class       @relation(fields: [classId], references: [id])
-  teacher    Teacher?    @relation("ClassTeacher", fields: [teacherId], references: [id])
-  students   Student[]
-  timetables Timetable[]
-  attendances Attendance[]
-  homeworks  Homework[]
+  class           Class            @relation(fields: [classId], references: [id])
+  teacher         Teacher?         @relation("ClassTeacher", fields: [teacherId], references: [id])
+  students        Student[]
+  timetables      Timetable[]
+  attendances     Attendance[]
+  homeworks       Homework[]
+  teacherSubjects TeacherSubject[]
 
   @@unique([name, classId])
   @@map("sections")
@@ -381,8 +382,9 @@ model TeacherSubject {
   sectionId String?
   createdAt DateTime @default(now())
 
-  teacher Teacher @relation(fields: [teacherId], references: [id])
-  subject Subject @relation(fields: [subjectId], references: [id])
+  teacher Teacher  @relation(fields: [teacherId], references: [id])
+  subject Subject  @relation(fields: [subjectId], references: [id])
+  section Section? @relation(fields: [sectionId], references: [id])
 
   @@unique([teacherId, subjectId, sectionId])
   @@map("teacher_subjects")

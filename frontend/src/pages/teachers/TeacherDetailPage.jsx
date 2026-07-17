@@ -31,7 +31,10 @@ const TeacherDetailPage = () => {
         setTeacher(t.data.data);
         setAttendance(a.data.data);
       })
-      .catch(() => toast.error('Failed to load teacher'))
+      .catch((err) => {
+        const msg = err?.response?.data?.message || 'Failed to load teacher';
+        toast.error(msg);
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
