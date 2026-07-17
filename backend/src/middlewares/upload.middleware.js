@@ -1,17 +1,9 @@
 const multer = require('multer');
-const path = require('path');
-const config = require('../config');
+const cloudinary = require('../config/cloudinary');
 const { AppError } = require('../utils/errors');
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, config.upload.path);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
-});
+// Use memory storage — files go to Cloudinary, not disk (required for Vercel serverless)
+const memoryStorage = multer.memoryStorage();
 
 const fileFilter = (allowedTypes) => (req, file, cb) => {
   if (allowedTypes.includes(file.mimetype)) {
@@ -21,7 +13,24 @@ const fileFilter = (allowedTypes) => (req, file, cb) => {
   }
 };
 
-/** Generic upload middleware factory */
+/**
+ * Upload a buffer to Cloudinary and return the result.
+ * @param {Buffer} buffer
+ * @param {object} options  - Cloudinary upload options (folder, public_id, etc.)
+ */
+const uploadToCloudinary = (buffer, options = {}) =>
+  new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { resource_type: 'image', ...options },
+      (err, result) => {
+        if (err) reject(new AppError(err.message || 'Cloudinary upload failed', 500));
+        else resolve(result);
+      }
+    );
+    stream.end(buffer);
+  });
+
+/** Generic multer middleware factory — stores in memory, ready for Cloudinary */
 const upload = (fieldName, allowedTypes = null, maxCount = 1) => {
   const types = allowedTypes || [
     'image/jpeg', 'image/png', 'image/webp',
@@ -31,8 +40,8 @@ const upload = (fieldName, allowedTypes = null, maxCount = 1) => {
   ];
 
   const multerUpload = multer({
-    storage,
-    limits: { fileSize: config.upload.maxSizeMb * 1024 * 1024 },
+    storage: memoryStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
     fileFilter: fileFilter(types),
   });
 
@@ -41,4 +50,4 @@ const upload = (fieldName, allowedTypes = null, maxCount = 1) => {
     : multerUpload.array(fieldName, maxCount);
 };
 
-module.exports = { upload };
+module.exports = { upload, uploadToCloudinary };

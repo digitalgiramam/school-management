@@ -1,6 +1,8 @@
 const settingsService = require('../services/settings.service');
 const { success } = require('../utils/response');
 const { audit } = require('../utils/audit');
+const { uploadToCloudinary } = require('../middlewares/upload.middleware');
+const { AppError } = require('../utils/errors');
 
 const settingsController = {
   // ── Profile ───────────────────────────────────────────────────
@@ -21,12 +23,14 @@ const settingsController = {
 
   async updateProfilePhoto(req, res, next) {
     try {
-      if (!req.file) {
-        const { AppError } = require('../utils/errors');
-        throw new AppError('No file uploaded', 400);
-      }
-      const url = `/uploads/${req.file.filename}`;
-      const result = await settingsService.updateProfilePhoto(req.user.id, url);
+      if (!req.file) throw new AppError('No file uploaded', 400);
+      const uploaded = await uploadToCloudinary(req.file.buffer, {
+        folder: 'school/profiles',
+        public_id: `user_${req.user.id}`,
+        overwrite: true,
+        transformation: [{ width: 400, height: 400, crop: 'fill', gravity: 'face' }],
+      });
+      const result = await settingsService.updateProfilePhoto(req.user.id, uploaded.secure_url);
       success(res, result, 'Profile photo updated');
     } catch (err) { next(err); }
   },

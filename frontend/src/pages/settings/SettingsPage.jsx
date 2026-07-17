@@ -13,6 +13,7 @@ import { useForm } from 'react-hook-form';
 import { settingsApi } from '../../api/axios';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import ProfilePhotoUpload from '../../components/common/ProfilePhotoUpload';
 
 // ── Helpers ────────────────────────────────────────────────────
 const TabPanel = ({ children, value, index }) =>
@@ -32,8 +33,6 @@ const ADMIN_ROLES = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PRINCIPAL'];
 // ══════════════════════════════════════════════════════════════
 const ProfileTab = ({ profile, onRefresh }) => {
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const fileRef = useRef();
 
   const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm();
 
@@ -65,22 +64,6 @@ const ProfileTab = ({ profile, onRefresh }) => {
     }
   };
 
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error('File too large (max 5MB)'); return; }
-    setUploading(true);
-    try {
-      await settingsApi.updateProfilePhoto(file);
-      toast.success('Photo updated');
-      onRefresh();
-    } catch {
-      toast.error('Photo upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const p = profile?.student || profile?.teacher || profile?.parent || profile?.staff;
   const displayName = p ? `${p.firstName} ${p.lastName}` : profile?.email;
 
@@ -90,28 +73,16 @@ const ProfileTab = ({ profile, onRefresh }) => {
       <Grid item xs={12} md={3}>
         <Card>
           <CardContent sx={{ textAlign: 'center', py: 4 }}>
-            <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
-              <Avatar
+            <Box sx={{ mb: 2 }}>
+              <ProfilePhotoUpload
                 src={profile?.profilePhoto}
-                sx={{ width: 100, height: 100, fontSize: 36, bgcolor: 'primary.main', mx: 'auto' }}
-              >
-                {displayName?.[0]?.toUpperCase()}
-              </Avatar>
-              <Tooltip title="Change photo">
-                <IconButton
-                  onClick={() => fileRef.current?.click()}
-                  disabled={uploading}
-                  sx={{
-                    position: 'absolute', bottom: -4, right: -4,
-                    bgcolor: 'primary.main', color: 'white', width: 30, height: 30,
-                    '&:hover': { bgcolor: 'primary.dark' },
-                  }}
-                  size="small"
-                >
-                  {uploading ? <CircularProgress size={14} color="inherit" /> : <PhotoCamera fontSize="small" />}
-                </IconButton>
-              </Tooltip>
-              <input ref={fileRef} type="file" accept="image/*" hidden onChange={handlePhotoUpload} />
+                name={displayName || ''}
+                size={100}
+                onUpload={async (file) => {
+                  await settingsApi.updateProfilePhoto(file);
+                  onRefresh();
+                }}
+              />
             </Box>
             <Typography variant="subtitle1" fontWeight={700}>{displayName}</Typography>
             <Chip label={profile?.role?.replace(/_/g, ' ')} size="small" color="primary" sx={{ mt: 0.5 }} />

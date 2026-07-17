@@ -25,8 +25,13 @@ module.exports = {
   },
 
   upload: {
-    path: process.env.UPLOAD_PATH || './uploads',
     maxSizeMb: parseInt(process.env.MAX_FILE_SIZE_MB, 10) || 5,
+  },
+
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
   },
 
   rateLimit: {

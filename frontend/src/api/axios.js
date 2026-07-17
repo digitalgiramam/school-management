@@ -90,6 +90,11 @@ export const teacherApi = {
   assignSubjects: (id, subjectIds) => api.put(`/teachers/${id}/subjects`, { subjectIds }),
   getAttendance: (id, params) => api.get(`/teachers/${id}/attendance`, { params }),
   remove: (id) => api.delete(`/teachers/${id}`),
+  uploadPhoto: (id, file) => {
+    const form = new FormData();
+    form.append('photo', file);
+    return api.post(`/teachers/${id}/photo`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
 };
 
 export const departmentApi = {

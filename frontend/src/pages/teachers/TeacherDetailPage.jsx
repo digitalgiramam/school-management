@@ -8,6 +8,7 @@ import { ArrowBack, Email, Phone, LocationOn, School, Work } from '@mui/icons-ma
 import { useParams, useNavigate } from 'react-router-dom';
 import { teacherApi } from '../../api/axios';
 import toast from 'react-hot-toast';
+import ProfilePhotoUpload from '../../components/common/ProfilePhotoUpload';
 
 const TabPanel = ({ children, value, index }) =>
   value === index ? <Box sx={{ pt: 2 }}>{children}</Box> : null;
@@ -56,12 +57,21 @@ const TeacherDetailPage = () => {
         <Grid item xs={12} md={3}>
           <Card>
             <CardContent sx={{ textAlign: 'center', pt: 4, pb: 3 }}>
-              <Avatar
-                src={teacher.user?.profilePhoto}
-                sx={{ width: 90, height: 90, mx: 'auto', mb: 2, bgcolor: 'secondary.main', fontSize: 32 }}
-              >
-                {teacher.firstName[0]}
-              </Avatar>
+              <Box sx={{ mb: 2 }}>
+                <ProfilePhotoUpload
+                  src={teacher.user?.profilePhoto}
+                  name={fullName}
+                  size={90}
+                  bgcolor="secondary.main"
+                  onUpload={async (file) => {
+                    const { data } = await teacherApi.uploadPhoto(id, file);
+                    setTeacher((prev) => ({
+                      ...prev,
+                      user: { ...prev.user, profilePhoto: data.data?.url },
+                    }));
+                  }}
+                />
+              </Box>
               <Typography variant="h6" fontWeight={700}>{fullName}</Typography>
               <Chip
                 label={teacher.isActive ? 'Active' : 'Inactive'}

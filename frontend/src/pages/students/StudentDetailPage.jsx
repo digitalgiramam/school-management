@@ -8,6 +8,7 @@ import { ArrowBack, Edit, School, Home, DirectionsBus, Hotel } from '@mui/icons-
 import { useNavigate, useParams } from 'react-router-dom';
 import { studentApi } from '../../api/axios';
 import toast from 'react-hot-toast';
+import ProfilePhotoUpload from '../../components/common/ProfilePhotoUpload';
 
 const TabPanel = ({ value, index, children }) =>
   value === index ? <Box sx={{ pt: 2 }}>{children}</Box> : null;
@@ -61,10 +62,21 @@ const StudentDetailPage = () => {
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent sx={{ textAlign: 'center', py: 4 }}>
-              <Avatar src={student.user?.profilePhoto}
-                sx={{ width: 96, height: 96, fontSize: 32, mx: 'auto', mb: 2, bgcolor: 'primary.main' }}>
-                {initials}
-              </Avatar>
+              <Box sx={{ mb: 2 }}>
+                <ProfilePhotoUpload
+                  src={student.user?.profilePhoto}
+                  name={fullName}
+                  size={96}
+                  bgcolor="primary.main"
+                  onUpload={async (file) => {
+                    const { data } = await studentApi.uploadPhoto(id, file);
+                    setStudent((prev) => ({
+                      ...prev,
+                      user: { ...prev.user, profilePhoto: data.data?.url },
+                    }));
+                  }}
+                />
+              </Box>
               <Typography variant="h6" fontWeight={700}>{fullName}</Typography>
               <Typography variant="body2" color="text.secondary" mb={1}>{student.user?.email}</Typography>
               <Chip label={student.isActive ? 'Active' : 'Inactive'}

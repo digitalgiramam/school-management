@@ -1,6 +1,9 @@
 const studentService = require('../services/student.service');
 const { success, paginate } = require('../utils/response');
 const { audit } = require('../utils/audit');
+const { uploadToCloudinary } = require('../middlewares/upload.middleware');
+const { AppError } = require('../utils/errors');
+const prisma = require('../config/prisma');
 
 const studentController = {
   async getAll(req, res, next) {
@@ -62,13 +65,18 @@ const studentController = {
 
   async uploadPhoto(req, res, next) {
     try {
-      if (!req.file) throw new Error('No file uploaded');
-      const url = `/uploads/${req.file.filename}`;
-      await require('../config/prisma').student.update({
-        where: { id: req.params.id },
-        data: { user: { update: { profilePhoto: url } } },
+      if (!req.file) throw new AppError('No file uploaded', 400);
+      const uploaded = await uploadToCloudinary(req.file.buffer, {
+        folder: 'school/profiles',
+        public_id: `student_${req.params.id}`,
+        overwrite: true,
+        transformation: [{ width: 400, height: 400, crop: 'fill', gravity: 'face' }],
       });
-      success(res, { url }, 'Photo uploaded');
+      await prisma.student.update({
+        where: { id: req.params.id },
+        data: { user: { update: { profilePhoto: uploaded.secure_url } } },
+      });
+      success(res, { url: uploaded.secure_url }, 'Photo uploaded');
     } catch (err) { next(err); }
   },
 };
