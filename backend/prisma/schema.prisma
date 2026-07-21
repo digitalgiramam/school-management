@@ -202,13 +202,17 @@ model Class {
   name           String       // e.g. "Grade 10"
   academicYearId String
   branchId       String
+  displayOrder   Int          @default(0)
+  isActive       Boolean      @default(true)
   createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   academicYear   AcademicYear   @relation(fields: [academicYearId], references: [id])
   branch         Branch         @relation(fields: [branchId], references: [id])
   sections       Section[]
   feeStructures  FeeStructure[]
   classSubjects  ClassSubject[]
+  classSections  ClassSection[]
 
   @@unique([name, academicYearId, branchId])
   @@map("classes")
@@ -217,32 +221,36 @@ model Class {
 model Section {
   id        String   @id @default(cuid())
   name      String   // e.g. "A", "B"
-  classId   String
+  classId   String?  // nullable — sections are independent master records
   teacherId String?  // class teacher
   capacity  Int      @default(40)
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  class           Class            @relation(fields: [classId], references: [id])
+  class           Class?           @relation(fields: [classId], references: [id])
   teacher         Teacher?         @relation("ClassTeacher", fields: [teacherId], references: [id])
   students        Student[]
   timetables      Timetable[]
   attendances     Attendance[]
   homeworks       Homework[]
   teacherSubjects TeacherSubject[]
+  classSections   ClassSection[]
 
-  @@unique([name, classId])
   @@map("sections")
 }
 
 model Subject {
   id           String  @id @default(cuid())
   name         String
-  code         String  @unique
+  code         String? // optional code
   departmentId String?
   isElective   Boolean @default(false)
+  isActive     Boolean @default(true)
   passMark     Float   @default(40)
   totalMark    Float   @default(100)
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   department      Department?      @relation(fields: [departmentId], references: [id])
   timetableSlots  TimetableSlot[]
@@ -252,6 +260,23 @@ model Subject {
   classSubjects   ClassSubject[]
 
   @@map("subjects")
+}
+
+// ──────────────────────────────────────────────
+// CLASS ↔ SECTION MAPPING
+// ──────────────────────────────────────────────
+
+model ClassSection {
+  id        String   @id @default(cuid())
+  classId   String
+  sectionId String
+  createdAt DateTime @default(now())
+
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, sectionId])
+  @@map("class_sections")
 }
 
 // ──────────────────────────────────────────────

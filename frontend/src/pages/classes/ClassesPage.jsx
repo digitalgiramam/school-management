@@ -1,479 +1,694 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box, Tabs, Tab, Typography, Card, CardContent, Button, Grid,
-  TextField, MenuItem, Table, TableHead, TableRow, TableCell, TableBody,
+  TextField, Table, TableHead, TableRow, TableCell, TableBody,
   IconButton, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-  CircularProgress, Tooltip, InputAdornment, TablePagination,
+  CircularProgress, InputAdornment, Switch, FormControlLabel, Divider,
+  Checkbox, FormGroup,
 } from '@mui/material';
-import { Add, Edit, Delete, Search, Class, ViewModule, MenuBook } from '@mui/icons-material';
-import { useForm, Controller } from 'react-hook-form';
-import { classApi, sectionApi, subjectApi, departmentApi } from '../../api/axios';
-import { settingsApi } from '../../api/axios';
+import { Add, Edit, Delete, Search, Class, ViewModule, MenuBook, AccountTree } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import { classApi, sectionApi, subjectApi, classMappingApi } from '../../api/axios';
 import toast from 'react-hot-toast';
 
 const ADMIN_ROLES = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PRINCIPAL'];
 
-// ── Generic CRUD Dialog ───────────────────────────────────────
-const FormDialog = ({ open, onClose, title, fields, initial, onSubmit: onSave }) => {
-  const [saving, setSaving] = useState(false);
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm();
+// ─── Reusable inline edit dialog ────────────────────────────────
+const SimpleDialog = ({ open, onClose, title, children, onSave, saving }) => (
+  <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <DialogTitle sx={{ pb: 1 }}>{title}</DialogTitle>
+    <DialogContent sx={{ pt: 1 }}>{children}</DialogContent>
+    <DialogActions>
+      <Button onClick={onClose}>Cancel</Button>
+      <Button variant="contained" onClick={onSave} disabled={saving}>
+        {saving ? 'Saving…' : 'Save'}
+      </Button>
+    </DialogActions>
+  </Dialog>
+);
 
-  useEffect(() => {
-    const defaults = {};
-    fields.forEach((f) => { defaults[f.name] = initial?.[f.name] ?? f.default ?? ''; });
-    reset(defaults);
-  }, [initial, open]);
+// ─── Status chip ────────────────────────────────────────────────
+const StatusChip = ({ active }) => (
+  <Chip
+    label={active ? 'Active' : 'Inactive'}
+    color={active ? 'success' : 'default'}
+    size="small"
+    variant="outlined"
+  />
+);
 
-  const handleSave = async (data) => {
-    setSaving(true);
-    try {
-      await onSave(data, initial?.id);
-      onClose();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Save failed');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{initial?.id ? `Edit ${title}` : `Add ${title}`}</DialogTitle>
-      <DialogContent>
-        <Box component="form" id="generic-form" onSubmit={handleSubmit(handleSave)}>
-          <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            {fields.map((f) =>
-              f.options ? (
-                <Grid item xs={12} sm={f.half ? 6 : 12} key={f.name}>
-                  <Controller name={f.name} control={control} defaultValue={f.default || ''}
-                    render={({ field }) => (
-                      <TextField fullWidth select label={f.label} size="small" {...field}>
-                        {f.allowEmpty && <MenuItem value="">None</MenuItem>}
-                        {f.options.map((o) => (
-                          <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-                        ))}
-                      </TextField>
-                    )} />
-                </Grid>
-              ) : (
-                <Grid item xs={12} sm={f.half ? 6 : 12} key={f.name}>
-                  <TextField
-                    fullWidth size="small" label={f.label} type={f.type || 'text'}
-                    error={!!errors[f.name]} helperText={errors[f.name]?.message}
-                    {...register(f.name, { required: f.required ? 'Required' : false })}
-                  />
-                </Grid>
-              )
-            )}
-          </Grid>
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button type="submit" form="generic-form" variant="contained" disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
-// ── Classes Tab ───────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// TAB 1 — CLASSES
+// ════════════════════════════════════════════════════════════════
 const ClassesTab = ({ isAdmin }) => {
-  const [classes, setClasses] = useState([]);
-  const [academicYears, setAcademicYears] = useState([]);
-  const [branches, setBranches] = useState([]);
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [ayFilter, setAyFilter] = useState('');
-  const [dialog, setDialog] = useState({ open: false, initial: null });
+  const [dialog, setDialog] = useState({ open: false, row: null });
+  const [form, setForm] = useState({ name: '', displayOrder: '', isActive: true });
+  const [saving, setSaving] = useState(false);
 
-  const fetchAll = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [cls, ay, br] = await Promise.all([
-        classApi.getAll({ search: search || undefined, academicYearId: ayFilter || undefined, limit: 100 }),
-        settingsApi.getAcademicYears(),
-        settingsApi.getBranches(),
-      ]);
-      setClasses(cls.data.data);
-      setAcademicYears(ay.data.data || []);
-      setBranches(br.data.data || []);
+      const { data } = await classApi.getAll({ search: search || undefined, limit: 200 });
+      setRows(data.data || []);
     } catch { toast.error('Failed to load classes'); }
     finally { setLoading(false); }
-  }, [search, ayFilter]);
+  }, [search]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { load(); }, [load]);
 
-  const handleSave = async (data, id) => {
-    if (id) await classApi.update(id, data);
-    else await classApi.create(data);
-    toast.success(id ? 'Class updated' : 'Class created');
-    fetchAll();
+  const openDialog = (row = null) => {
+    setForm(row
+      ? { name: row.name, displayOrder: row.displayOrder ?? 0, isActive: row.isActive ?? true }
+      : { name: '', displayOrder: '', isActive: true }
+    );
+    setDialog({ open: true, row });
   };
 
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete class "${name}"?`)) return;
+  const handleSave = async () => {
+    if (!form.name.trim()) return toast.error('Class name is required');
+    setSaving(true);
     try {
-      await classApi.remove(id);
-      toast.success('Deleted');
-      fetchAll();
+      if (dialog.row?.id) {
+        await classApi.update(dialog.row.id, form);
+        toast.success('Class updated');
+      } else {
+        await classApi.create(form);
+        toast.success('Class created');
+      }
+      setDialog({ open: false, row: null });
+      load();
+    } catch (err) { toast.error(err.response?.data?.message || 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (row) => {
+    if (!window.confirm(`Delete class "${row.name}"?`)) return;
+    try {
+      await classApi.remove(row.id);
+      toast.success('Class deleted');
+      load();
     } catch (err) { toast.error(err.response?.data?.message || 'Delete failed'); }
   };
-
-  const fields = [
-    { name: 'name', label: 'Class Name (e.g. Grade 10)', required: true },
-    {
-      name: 'academicYearId', label: 'Academic Year', required: true,
-      options: academicYears.map((a) => ({ value: a.id, label: a.name })),
-    },
-    {
-      name: 'branchId', label: 'Branch', required: true,
-      options: branches.map((b) => ({ value: b.id, label: b.name })),
-    },
-  ];
 
   return (
     <Box>
       <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search…" value={search}
+        <TextField
+          size="small" placeholder="Search classes…" value={search}
           onChange={(e) => setSearch(e.target.value)}
-          InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }} />
-        <TextField select size="small" label="Academic Year" value={ayFilter}
-          onChange={(e) => setAyFilter(e.target.value)} sx={{ minWidth: 160 }}>
-          <MenuItem value="">All Years</MenuItem>
-          {academicYears.map((a) => <MenuItem key={a.id} value={a.id}>{a.name}</MenuItem>)}
-        </TextField>
+          InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+          sx={{ maxWidth: 280 }}
+        />
         {isAdmin && (
-          <Button variant="contained" startIcon={<Add />} sx={{ ml: 'auto' }}
-            onClick={() => setDialog({ open: true, initial: null })}>
+          <Button variant="contained" startIcon={<Add />} sx={{ ml: 'auto' }} onClick={() => openDialog()}>
             Add Class
           </Button>
         )}
       </Box>
 
-      {loading ? (
-        <Box textAlign="center" py={4}><CircularProgress /></Box>
-      ) : (
+      {loading ? <Box textAlign="center" py={6}><CircularProgress /></Box> : (
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell>#</TableCell>
               <TableCell>Class Name</TableCell>
               <TableCell>Academic Year</TableCell>
-              <TableCell>Branch</TableCell>
               <TableCell>Sections</TableCell>
+              <TableCell>Subjects</TableCell>
+              <TableCell>Status</TableCell>
               {isAdmin && <TableCell align="right">Actions</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
-            {classes.map((c) => (
-              <TableRow key={c.id} hover>
-                <TableCell fontWeight={600}>{c.name}</TableCell>
+            {rows.length === 0 ? (
+              <TableRow><TableCell colSpan={7} align="center">
+                <Typography color="text.secondary" py={3}>No classes yet — click Add Class to get started</Typography>
+              </TableCell></TableRow>
+            ) : rows.map((r, i) => (
+              <TableRow key={r.id} hover>
+                <TableCell sx={{ color: 'text.secondary', fontSize: 12 }}>{r.displayOrder || i + 1}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{r.name}</TableCell>
                 <TableCell>
-                  {c.academicYear?.name}
-                  {c.academicYear?.isCurrent && <Chip label="Current" size="small" color="success" sx={{ ml: 1 }} />}
+                  {r.academicYear?.name}
+                  {r.academicYear?.isCurrent && <Chip label="Current" size="small" color="primary" sx={{ ml: 1 }} />}
                 </TableCell>
-                <TableCell>{c.branch?.name}</TableCell>
-                <TableCell>
-                  <Chip label={`${c._count?.sections || 0} sections`} size="small" variant="outlined" />
-                </TableCell>
+                <TableCell><Chip label={r._count?.classSections ?? r._count?.sections ?? 0} size="small" variant="outlined" /></TableCell>
+                <TableCell><Chip label={r._count?.classSubjects ?? 0} size="small" variant="outlined" color="secondary" /></TableCell>
+                <TableCell><StatusChip active={r.isActive !== false} /></TableCell>
                 {isAdmin && (
                   <TableCell align="right">
-                    <IconButton size="small" onClick={() => setDialog({ open: true, initial: c })}>
-                      <Edit fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(c.id, c.name)}>
-                      <Delete fontSize="small" />
-                    </IconButton>
+                    <IconButton size="small" onClick={() => openDialog(r)}><Edit fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDelete(r)}><Delete fontSize="small" /></IconButton>
                   </TableCell>
                 )}
               </TableRow>
             ))}
-            {!classes.length && (
-              <TableRow><TableCell colSpan={5} align="center">
-                <Typography color="text.secondary" py={3}>No classes found</Typography>
-              </TableCell></TableRow>
-            )}
           </TableBody>
         </Table>
       )}
-      <FormDialog open={dialog.open} title="Class" fields={fields}
-        initial={dialog.initial} onClose={() => setDialog({ open: false, initial: null })}
-        onSubmit={handleSave} />
+
+      <SimpleDialog open={dialog.open} onClose={() => setDialog({ open: false, row: null })}
+        title={dialog.row ? 'Edit Class' : 'Add Class'} onSave={handleSave} saving={saving}>
+        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+          <Grid item xs={12}>
+            <TextField fullWidth size="small" label="Class Name *" placeholder="e.g. Grade 1"
+              value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </Grid>
+          <Grid item xs={12}>
+            <TextField fullWidth size="small" label="Display Order" type="number" placeholder="0"
+              value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: e.target.value })} />
+          </Grid>
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={<Switch checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />}
+              label="Active"
+            />
+          </Grid>
+        </Grid>
+      </SimpleDialog>
     </Box>
   );
 };
 
-// ── Sections Tab ──────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// TAB 2 — SECTIONS
+// ════════════════════════════════════════════════════════════════
 const SectionsTab = ({ isAdmin }) => {
-  const [sections, setSections] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [teachers, setTeachers] = useState([]);
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [classFilter, setClassFilter] = useState('');
-  const [dialog, setDialog] = useState({ open: false, initial: null });
+  const [search, setSearch] = useState('');
+  const [dialog, setDialog] = useState({ open: false, row: null });
+  const [form, setForm] = useState({ name: '', isActive: true });
+  const [saving, setSaving] = useState(false);
 
-  const fetchAll = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sec, cls] = await Promise.all([
-        sectionApi.getAll({ classId: classFilter || undefined, limit: 200 }),
-        classApi.getAll({ limit: 200 }),
-      ]);
-      setSections(sec.data.data);
-      setClasses(cls.data.data);
+      const { data } = await sectionApi.getAll({ limit: 200 });
+      // Show independent sections (no classId) first, then all
+      const all = data.data || [];
+      setRows(all.filter((s) => !s.classId)); // master sections only
     } catch { toast.error('Failed to load sections'); }
     finally { setLoading(false); }
-  }, [classFilter]);
+  }, [search]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { load(); }, [load]);
 
-  const handleSave = async (data, id) => {
-    if (id) await sectionApi.update(id, data);
-    else await sectionApi.create(data);
-    toast.success(id ? 'Section updated' : 'Section created');
-    fetchAll();
+  const openDialog = (row = null) => {
+    setForm(row
+      ? { name: row.name, isActive: row.isActive ?? true }
+      : { name: '', isActive: true }
+    );
+    setDialog({ open: true, row });
   };
 
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete section "${name}"?`)) return;
+  const handleSave = async () => {
+    if (!form.name.trim()) return toast.error('Section name is required');
+    setSaving(true);
     try {
-      await sectionApi.remove(id);
-      toast.success('Deleted');
-      fetchAll();
+      if (dialog.row?.id) {
+        await sectionApi.update(dialog.row.id, { name: form.name, isActive: form.isActive });
+        toast.success('Section updated');
+      } else {
+        await sectionApi.create({ name: form.name, isActive: form.isActive });
+        toast.success('Section created');
+      }
+      setDialog({ open: false, row: null });
+      load();
+    } catch (err) { toast.error(err.response?.data?.message || 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (row) => {
+    if (!window.confirm(`Delete section "${row.name}"?`)) return;
+    try {
+      await sectionApi.remove(row.id);
+      toast.success('Section deleted');
+      load();
     } catch (err) { toast.error(err.response?.data?.message || 'Delete failed'); }
   };
 
-  const fields = [
-    { name: 'name', label: 'Section Name (e.g. A)', required: true, half: true },
-    { name: 'capacity', label: 'Capacity', type: 'number', half: true, default: '40' },
-    {
-      name: 'classId', label: 'Class', required: true,
-      options: classes.map((c) => ({ value: c.id, label: c.name })),
-    },
-  ];
+  // Filter by search
+  const filtered = rows.filter((r) =>
+    !search || r.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <Box>
       <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
-        <TextField select size="small" label="Filter by Class" value={classFilter}
-          onChange={(e) => setClassFilter(e.target.value)} sx={{ minWidth: 200 }}>
-          <MenuItem value="">All Classes</MenuItem>
-          {classes.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-        </TextField>
+        <TextField
+          size="small" placeholder="Search sections…" value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+          sx={{ maxWidth: 280 }}
+        />
         {isAdmin && (
-          <Button variant="contained" startIcon={<Add />} sx={{ ml: 'auto' }}
-            onClick={() => setDialog({ open: true, initial: null })}>
+          <Button variant="contained" startIcon={<Add />} sx={{ ml: 'auto' }} onClick={() => openDialog()}>
             Add Section
           </Button>
         )}
       </Box>
 
-      {loading ? (
-        <Box textAlign="center" py={4}><CircularProgress /></Box>
-      ) : (
+      {loading ? <Box textAlign="center" py={6}><CircularProgress /></Box> : (
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Section</TableCell>
-              <TableCell>Class</TableCell>
-              <TableCell>Class Teacher</TableCell>
-              <TableCell>Students</TableCell>
-              <TableCell>Capacity</TableCell>
+              <TableCell>Section Name</TableCell>
+              <TableCell>Status</TableCell>
               {isAdmin && <TableCell align="right">Actions</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
-            {sections.map((s) => (
-              <TableRow key={s.id} hover>
-                <TableCell fontWeight={600}>{s.name}</TableCell>
-                <TableCell>{s.class?.name}</TableCell>
-                <TableCell>
-                  {s.teacher
-                    ? `${s.teacher.firstName} ${s.teacher.lastName}`
-                    : <Typography variant="caption" color="text.secondary">Not assigned</Typography>}
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={`${s._count?.students || 0} / ${s.capacity}`}
-                    size="small"
-                    color={s._count?.students >= s.capacity ? 'error' : 'success'}
-                    variant="outlined"
-                  />
-                </TableCell>
-                <TableCell>{s.capacity}</TableCell>
+            {filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={3} align="center">
+                <Typography color="text.secondary" py={3}>
+                  No sections yet — add section labels like A, B, C, Red, Blue
+                </Typography>
+              </TableCell></TableRow>
+            ) : filtered.map((r) => (
+              <TableRow key={r.id} hover>
+                <TableCell sx={{ fontWeight: 600, fontSize: 15 }}>{r.name}</TableCell>
+                <TableCell><StatusChip active={r.isActive !== false} /></TableCell>
                 {isAdmin && (
                   <TableCell align="right">
-                    <IconButton size="small" onClick={() => setDialog({ open: true, initial: s })}>
-                      <Edit fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(s.id, s.name)}>
-                      <Delete fontSize="small" />
-                    </IconButton>
+                    <IconButton size="small" onClick={() => openDialog(r)}><Edit fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDelete(r)}><Delete fontSize="small" /></IconButton>
                   </TableCell>
                 )}
               </TableRow>
             ))}
-            {!sections.length && (
-              <TableRow><TableCell colSpan={6} align="center">
-                <Typography color="text.secondary" py={3}>No sections found</Typography>
-              </TableCell></TableRow>
-            )}
           </TableBody>
         </Table>
       )}
-      <FormDialog open={dialog.open} title="Section" fields={fields}
-        initial={dialog.initial} onClose={() => setDialog({ open: false, initial: null })}
-        onSubmit={handleSave} />
+
+      <SimpleDialog open={dialog.open} onClose={() => setDialog({ open: false, row: null })}
+        title={dialog.row ? 'Edit Section' : 'Add Section'} onSave={handleSave} saving={saving}>
+        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+          <Grid item xs={12}>
+            <TextField fullWidth size="small" label="Section Name *" placeholder="e.g. A or Red"
+              value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </Grid>
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={<Switch checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />}
+              label="Active"
+            />
+          </Grid>
+        </Grid>
+      </SimpleDialog>
     </Box>
   );
 };
 
-// ── Subjects Tab ──────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// TAB 3 — SUBJECTS
+// ════════════════════════════════════════════════════════════════
 const SubjectsTab = ({ isAdmin }) => {
-  const [subjects, setSubjects] = useState([]);
-  const [departments, setDepartments] = useState([]);
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [dialog, setDialog] = useState({ open: false, initial: null });
+  const [dialog, setDialog] = useState({ open: false, row: null });
+  const [form, setForm] = useState({ name: '', code: '', isActive: true });
+  const [saving, setSaving] = useState(false);
 
-  const fetchAll = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sub, dept] = await Promise.all([
-        subjectApi.getAll({ search: search || undefined, limit: 200 }),
-        departmentApi.getAll({ limit: 100 }),
-      ]);
-      setSubjects(sub.data.data);
-      setDepartments(dept.data.data || []);
+      const { data } = await subjectApi.getAll({ search: search || undefined, limit: 200 });
+      setRows(data.data || []);
     } catch { toast.error('Failed to load subjects'); }
     finally { setLoading(false); }
   }, [search]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { load(); }, [load]);
 
-  const handleSave = async (data, id) => {
-    if (id) await subjectApi.update(id, data);
-    else await subjectApi.create(data);
-    toast.success(id ? 'Subject updated' : 'Subject created');
-    fetchAll();
+  const openDialog = (row = null) => {
+    setForm(row
+      ? { name: row.name, code: row.code || '', isActive: row.isActive ?? true }
+      : { name: '', code: '', isActive: true }
+    );
+    setDialog({ open: true, row });
   };
 
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete subject "${name}"?`)) return;
+  const handleSave = async () => {
+    if (!form.name.trim()) return toast.error('Subject name is required');
+    setSaving(true);
     try {
-      await subjectApi.remove(id);
-      toast.success('Deleted');
-      fetchAll();
+      if (dialog.row?.id) {
+        await subjectApi.update(dialog.row.id, form);
+        toast.success('Subject updated');
+      } else {
+        await subjectApi.create(form);
+        toast.success('Subject created');
+      }
+      setDialog({ open: false, row: null });
+      load();
+    } catch (err) { toast.error(err.response?.data?.message || 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (row) => {
+    if (!window.confirm(`Delete subject "${row.name}"?`)) return;
+    try {
+      await subjectApi.remove(row.id);
+      toast.success('Subject deleted');
+      load();
     } catch (err) { toast.error(err.response?.data?.message || 'Delete failed'); }
   };
-
-  const fields = [
-    { name: 'name', label: 'Subject Name', required: true, half: true },
-    { name: 'code', label: 'Subject Code', required: true, half: true },
-    {
-      name: 'departmentId', label: 'Department', allowEmpty: true,
-      options: departments.map((d) => ({ value: d.id, label: d.name })),
-    },
-    { name: 'passMark', label: 'Pass Mark', type: 'number', half: true, default: '40' },
-    { name: 'totalMark', label: 'Total Mark', type: 'number', half: true, default: '100' },
-  ];
 
   return (
     <Box>
       <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search name or code…" value={search}
+        <TextField
+          size="small" placeholder="Search subjects…" value={search}
           onChange={(e) => setSearch(e.target.value)}
-          InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }} />
+          InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+          sx={{ maxWidth: 280 }}
+        />
         {isAdmin && (
-          <Button variant="contained" startIcon={<Add />} sx={{ ml: 'auto' }}
-            onClick={() => setDialog({ open: true, initial: null })}>
+          <Button variant="contained" startIcon={<Add />} sx={{ ml: 'auto' }} onClick={() => openDialog()}>
             Add Subject
           </Button>
         )}
       </Box>
 
-      {loading ? (
-        <Box textAlign="center" py={4}><CircularProgress /></Box>
-      ) : (
+      {loading ? <Box textAlign="center" py={6}><CircularProgress /></Box> : (
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Subject</TableCell>
+              <TableCell>Subject Name</TableCell>
               <TableCell>Code</TableCell>
-              <TableCell>Department</TableCell>
-              <TableCell>Pass Mark</TableCell>
-              <TableCell>Total Mark</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Teachers</TableCell>
+              <TableCell>Status</TableCell>
               {isAdmin && <TableCell align="right">Actions</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
-            {subjects.map((s) => (
-              <TableRow key={s.id} hover>
-                <TableCell fontWeight={600}>{s.name}</TableCell>
-                <TableCell><Chip label={s.code} size="small" variant="outlined" /></TableCell>
-                <TableCell>{s.department?.name || '—'}</TableCell>
-                <TableCell>{s.passMark}</TableCell>
-                <TableCell>{s.totalMark}</TableCell>
+            {rows.length === 0 ? (
+              <TableRow><TableCell colSpan={4} align="center">
+                <Typography color="text.secondary" py={3}>
+                  No subjects yet — add subjects like English, Mathematics, Science
+                </Typography>
+              </TableCell></TableRow>
+            ) : rows.map((r) => (
+              <TableRow key={r.id} hover>
+                <TableCell sx={{ fontWeight: 600 }}>{r.name}</TableCell>
                 <TableCell>
-                  <Chip
-                    label={s.isElective ? 'Elective' : 'Core'}
-                    size="small"
-                    color={s.isElective ? 'info' : 'default'}
-                  />
+                  {r.code ? <Chip label={r.code} size="small" variant="outlined" /> : '—'}
                 </TableCell>
-                <TableCell>{s._count?.teacherSubjects || 0}</TableCell>
+                <TableCell><StatusChip active={r.isActive !== false} /></TableCell>
                 {isAdmin && (
                   <TableCell align="right">
-                    <IconButton size="small" onClick={() => setDialog({ open: true, initial: s })}>
-                      <Edit fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(s.id, s.name)}>
-                      <Delete fontSize="small" />
-                    </IconButton>
+                    <IconButton size="small" onClick={() => openDialog(r)}><Edit fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDelete(r)}><Delete fontSize="small" /></IconButton>
                   </TableCell>
                 )}
               </TableRow>
             ))}
-            {!subjects.length && (
-              <TableRow><TableCell colSpan={8} align="center">
-                <Typography color="text.secondary" py={3}>No subjects found</Typography>
-              </TableCell></TableRow>
-            )}
           </TableBody>
         </Table>
       )}
-      <FormDialog open={dialog.open} title="Subject" fields={fields}
-        initial={dialog.initial} onClose={() => setDialog({ open: false, initial: null })}
-        onSubmit={handleSave} />
+
+      <SimpleDialog open={dialog.open} onClose={() => setDialog({ open: false, row: null })}
+        title={dialog.row ? 'Edit Subject' : 'Add Subject'} onSave={handleSave} saving={saving}>
+        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+          <Grid item xs={12}>
+            <TextField fullWidth size="small" label="Subject Name *" placeholder="e.g. Mathematics"
+              value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </Grid>
+          <Grid item xs={12}>
+            <TextField fullWidth size="small" label="Subject Code" placeholder="e.g. MATH"
+              value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+          </Grid>
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={<Switch checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />}
+              label="Active"
+            />
+          </Grid>
+        </Grid>
+      </SimpleDialog>
     </Box>
   );
 };
 
-// ── Main Page ──────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// TAB 4 — CLASS MAPPING
+// ════════════════════════════════════════════════════════════════
+const ClassMappingTab = ({ isAdmin }) => {
+  const [classes, setClasses] = useState([]);
+  const [allSections, setAllSections] = useState([]);
+  const [allSubjects, setAllSubjects] = useState([]);
+  const [selectedClass, setSelectedClass] = useState(null);
+  const [checkedSections, setCheckedSections] = useState(new Set());
+  const [checkedSubjects, setCheckedSubjects] = useState(new Set());
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [sectionSearch, setSectionSearch] = useState('');
+  const [subjectSearch, setSubjectSearch] = useState('');
+
+  useEffect(() => {
+    Promise.all([
+      classApi.getAll({ limit: 200 }),
+      sectionApi.getAll({ limit: 200 }),
+      subjectApi.getAll({ limit: 200 }),
+    ]).then(([c, s, sub]) => {
+      setClasses(c.data.data || []);
+      // Master sections (no classId)
+      setAllSections((s.data.data || []).filter((sec) => !sec.classId && sec.isActive !== false));
+      setAllSubjects((sub.data.data || []).filter((su) => su.isActive !== false));
+    }).catch(() => toast.error('Failed to load data'));
+  }, []);
+
+  const loadMapping = async (cls) => {
+    setSelectedClass(cls);
+    setCheckedSections(new Set());
+    setCheckedSubjects(new Set());
+    setLoading(true);
+    try {
+      const { data } = await classMappingApi.getByClass(cls.id);
+      const mapping = data.data || data;
+      setCheckedSections(new Set((mapping.sections || []).map((s) => s.id)));
+      setCheckedSubjects(new Set((mapping.subjects || []).map((s) => s.id)));
+    } catch { toast.error('Failed to load mapping'); }
+    finally { setLoading(false); }
+  };
+
+  const toggleSection = (id) => {
+    setCheckedSections((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSubject = (id) => {
+    setCheckedSubjects((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    if (!selectedClass) return;
+    setSaving(true);
+    try {
+      await classMappingApi.saveMapping(
+        selectedClass.id,
+        Array.from(checkedSections),
+        Array.from(checkedSubjects),
+      );
+      toast.success(`Mapping saved for ${selectedClass.name}`);
+    } catch (err) { toast.error(err.response?.data?.message || 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  const filteredSections = allSections.filter((s) =>
+    !sectionSearch || s.name.toLowerCase().includes(sectionSearch.toLowerCase())
+  );
+  const filteredSubjects = allSubjects.filter((s) =>
+    !subjectSearch || s.name.toLowerCase().includes(subjectSearch.toLowerCase()) ||
+    (s.code || '').toLowerCase().includes(subjectSearch.toLowerCase())
+  );
+
+  return (
+    <Grid container spacing={3}>
+      {/* Left — class picker */}
+      <Grid item xs={12} sm={3}>
+        <Typography variant="subtitle2" fontWeight={700} mb={1} color="text.secondary">
+          SELECT CLASS
+        </Typography>
+        {classes.length === 0 ? (
+          <Typography variant="caption" color="text.secondary">
+            No classes found. Add classes first.
+          </Typography>
+        ) : classes.map((cls) => {
+          const selected = selectedClass?.id === cls.id;
+          return (
+            <Box key={cls.id} onClick={() => loadMapping(cls)}
+              sx={{
+                px: 1.5, py: 1, borderRadius: 1, cursor: 'pointer', mb: 0.5,
+                border: '1px solid',
+                borderColor: selected ? 'primary.main' : 'divider',
+                bgcolor: selected ? 'primary.main' : 'transparent',
+                color: selected ? 'white' : 'text.primary',
+                '&:hover': { bgcolor: selected ? 'primary.dark' : 'action.hover' },
+              }}
+            >
+              <Typography variant="body2" fontWeight={selected ? 700 : 400}>{cls.name}</Typography>
+              {cls.academicYear?.isCurrent && (
+                <Typography variant="caption" sx={{ opacity: 0.8 }}>Current year</Typography>
+              )}
+            </Box>
+          );
+        })}
+      </Grid>
+
+      {/* Right — mapping panel */}
+      <Grid item xs={12} sm={9}>
+        {!selectedClass ? (
+          <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+            <AccountTree sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+            <Typography>Select a class to configure its sections and subjects</Typography>
+          </Box>
+        ) : loading ? (
+          <Box textAlign="center" py={6}><CircularProgress /></Box>
+        ) : (
+          <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" fontWeight={700}>{selectedClass.name}</Typography>
+              {isAdmin && (
+                <Button variant="contained" onClick={handleSave} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save Mapping'}
+                </Button>
+              )}
+            </Box>
+
+            <Grid container spacing={3}>
+              {/* Sections */}
+              <Grid item xs={12} sm={5}>
+                <Typography variant="subtitle2" fontWeight={700} mb={1} color="primary.main">
+                  SECTIONS ({checkedSections.size} selected)
+                </Typography>
+                <TextField
+                  fullWidth size="small" placeholder="Search sections…"
+                  value={sectionSearch} onChange={(e) => setSectionSearch(e.target.value)}
+                  sx={{ mb: 1 }}
+                />
+                {allSections.length === 0 ? (
+                  <Typography variant="caption" color="text.secondary">
+                    No sections found. Go to Sections tab to add A, B, C etc.
+                  </Typography>
+                ) : (
+                  <Card variant="outlined" sx={{ maxHeight: 320, overflowY: 'auto' }}>
+                    <FormGroup sx={{ px: 1 }}>
+                      {filteredSections.map((s) => (
+                        <FormControlLabel
+                          key={s.id}
+                          control={
+                            <Checkbox
+                              size="small"
+                              checked={checkedSections.has(s.id)}
+                              onChange={() => isAdmin && toggleSection(s.id)}
+                              disabled={!isAdmin}
+                            />
+                          }
+                          label={<Typography variant="body2">{s.name}</Typography>}
+                        />
+                      ))}
+                    </FormGroup>
+                  </Card>
+                )}
+              </Grid>
+
+              <Grid item xs={12} sm={1} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Divider orientation="vertical" flexItem />
+              </Grid>
+
+              {/* Subjects */}
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" fontWeight={700} mb={1} color="secondary.main">
+                  SUBJECTS ({checkedSubjects.size} selected)
+                </Typography>
+                <TextField
+                  fullWidth size="small" placeholder="Search subjects…"
+                  value={subjectSearch} onChange={(e) => setSubjectSearch(e.target.value)}
+                  sx={{ mb: 1 }}
+                />
+                {allSubjects.length === 0 ? (
+                  <Typography variant="caption" color="text.secondary">
+                    No subjects found. Go to Subjects tab to add them.
+                  </Typography>
+                ) : (
+                  <Card variant="outlined" sx={{ maxHeight: 320, overflowY: 'auto' }}>
+                    <FormGroup sx={{ px: 1 }}>
+                      {filteredSubjects.map((s) => (
+                        <FormControlLabel
+                          key={s.id}
+                          control={
+                            <Checkbox
+                              size="small"
+                              checked={checkedSubjects.has(s.id)}
+                              onChange={() => isAdmin && toggleSubject(s.id)}
+                              disabled={!isAdmin}
+                            />
+                          }
+                          label={
+                            <Box>
+                              <Typography variant="body2">{s.name}</Typography>
+                              {s.code && <Typography variant="caption" color="text.secondary">{s.code}</Typography>}
+                            </Box>
+                          }
+                        />
+                      ))}
+                    </FormGroup>
+                  </Card>
+                )}
+              </Grid>
+            </Grid>
+          </Box>
+        )}
+      </Grid>
+    </Grid>
+  );
+};
+
+// ════════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ════════════════════════════════════════════════════════════════
 const ClassesPage = () => {
   const { user } = useAuth();
   const isAdmin = ADMIN_ROLES.includes(user?.role);
   const [tab, setTab] = useState(0);
 
+  const TABS = [
+    { label: 'Classes', icon: <Class /> },
+    { label: 'Sections', icon: <ViewModule /> },
+    { label: 'Subjects', icon: <MenuBook /> },
+    { label: 'Class Mapping', icon: <AccountTree /> },
+  ];
+
   return (
     <Box>
-      <Typography variant="h5" fontWeight={700} mb={3}>Academic Structure</Typography>
+      <Typography variant="h5" fontWeight={700} mb={3}>Academic Setup</Typography>
+
       <Card>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-            <Tab icon={<Class />} iconPosition="start" label="Classes" sx={{ textTransform: 'none' }} />
-            <Tab icon={<ViewModule />} iconPosition="start" label="Sections" sx={{ textTransform: 'none' }} />
-            <Tab icon={<MenuBook />} iconPosition="start" label="Subjects" sx={{ textTransform: 'none' }} />
+          <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
+            {TABS.map((t, i) => (
+              <Tab key={i} icon={t.icon} iconPosition="start" label={t.label}
+                sx={{ textTransform: 'none', minHeight: 48 }} />
+            ))}
           </Tabs>
         </Box>
-        <CardContent>
+        <CardContent sx={{ pt: 2 }}>
           {tab === 0 && <ClassesTab isAdmin={isAdmin} />}
           {tab === 1 && <SectionsTab isAdmin={isAdmin} />}
           {tab === 2 && <SubjectsTab isAdmin={isAdmin} />}
+          {tab === 3 && <ClassMappingTab isAdmin={isAdmin} />}
         </CardContent>
       </Card>
     </Box>

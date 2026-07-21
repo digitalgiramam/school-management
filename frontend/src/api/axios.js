@@ -263,6 +263,12 @@ export const classSubjectApi = {
   remove: (classId, subjectId) => api.delete('/class-subjects', { data: { classId, subjectId } }),
 };
 
+export const classMappingApi = {
+  getByClass: (classId) => api.get('/class-mappings', { params: { classId } }),
+  saveMapping: (classId, sectionIds, subjectIds) =>
+    api.post('/class-mappings', { classId, sectionIds, subjectIds }),
+};
+
 export const settingsApi = {
   getProfile: () => api.get('/settings/profile'),
   updateProfile: (data) => api.put('/settings/profile', data),

@@ -58,6 +58,7 @@ const academicYearRoutes = require('./routes/academicYear.routes');
 const branchRoutes       = require('./routes/branch.routes');
 const departmentRoutes   = require('./routes/department.routes');
 const classSubjectRoutes = require('./routes/classSubject.routes');
+const classMappingRoutes = require('./routes/classSection.routes');
 
 const app = express();
 
@@ -164,6 +165,7 @@ app.use(`${API}/academic-years`,academicYearRoutes);
 app.use(`${API}/branches`,      branchRoutes);
 app.use(`${API}/departments`,    departmentRoutes);
 app.use(`${API}/class-subjects`, classSubjectRoutes);
+app.use(`${API}/class-mappings`, classMappingRoutes);
 
 // ── Serve React frontend in production on Railway (not on Vercel) ─
 // On Vercel, the frontend/dist is served by Vercel's CDN automatically.

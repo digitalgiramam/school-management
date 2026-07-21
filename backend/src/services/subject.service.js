@@ -5,11 +5,12 @@ const { parsePaginationParams } = require('../utils/pagination');
 const subjectService = {
   async getAll(query) {
     const { page, limit, skip, search } = parsePaginationParams(query);
-    const { departmentId, isElective, sectionId } = query;
+    const { departmentId, isElective, sectionId, isActive } = query;
 
     const where = {
       ...(departmentId && { departmentId }),
       ...(isElective !== undefined && { isElective: isElective === 'true' }),
+      ...(isActive !== undefined && { isActive: isActive === 'true' || isActive === true }),
       ...(search && {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
@@ -61,14 +62,18 @@ const subjectService = {
   },
 
   async create(data) {
-    const { name, code, departmentId, isElective, passMark, totalMark } = data;
-    const exists = await prisma.subject.findUnique({ where: { code } });
-    if (exists) throw new AppError('Subject code already exists', 400);
+    const { name, code, departmentId, isElective, isActive, passMark, totalMark } = data;
+    if (code) {
+      const exists = await prisma.subject.findFirst({ where: { code } });
+      if (exists) throw new AppError('Subject code already exists', 400);
+    }
     return prisma.subject.create({
       data: {
-        name, code,
+        name,
+        code: code || null,
         departmentId: departmentId || null,
         isElective: isElective === true || isElective === 'true',
+        isActive: isActive !== false && isActive !== 'false',
         passMark: parseFloat(passMark) || 40,
         totalMark: parseFloat(totalMark) || 100,
       },
@@ -77,15 +82,17 @@ const subjectService = {
   },
 
   async update(id, data) {
-    const { name, departmentId, isElective, passMark, totalMark } = data;
+    const { name, code, departmentId, isElective, isActive, passMark, totalMark } = data;
     return prisma.subject.update({
       where: { id },
       data: {
-        name,
-        departmentId: departmentId || null,
-        isElective: isElective !== undefined ? (isElective === true || isElective === 'true') : undefined,
-        passMark: passMark !== undefined ? parseFloat(passMark) : undefined,
-        totalMark: totalMark !== undefined ? parseFloat(totalMark) : undefined,
+        ...(name && { name }),
+        ...(code !== undefined && { code: code || null }),
+        ...(departmentId !== undefined && { departmentId: departmentId || null }),
+        ...(isElective !== undefined && { isElective: isElective === true || isElective === 'true' }),
+        ...(isActive !== undefined && { isActive: isActive === true || isActive === 'true' }),
+        ...(passMark !== undefined && { passMark: parseFloat(passMark) }),
+        ...(totalMark !== undefined && { totalMark: parseFloat(totalMark) }),
       },
       include: { department: { select: { name: true } } },
     });

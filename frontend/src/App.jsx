@@ -22,7 +22,6 @@ import TeacherDetailPage from './pages/teachers/TeacherDetailPage';
 
 // Classes
 import ClassesPage from './pages/classes/ClassesPage';
-import ClassSubjectsPage from './pages/classsubjects/ClassSubjectsPage';
 
 // Attendance
 import AttendancePage from './pages/attendance/AttendancePage';
@@ -102,7 +101,6 @@ const App = () => {
         <Route path="teachers/:id" element={<TeacherDetailPage />} />
 
         <Route path="classes" element={<ClassesPage />} />
-        <Route path="class-subjects" element={<ClassSubjectsPage />} />
         <Route path="parents" element={<ParentsPage />} />
         <Route path="attendance" element={<AttendancePage />} />
 
