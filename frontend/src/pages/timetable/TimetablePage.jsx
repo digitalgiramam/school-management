@@ -23,7 +23,15 @@ for (let h = 7; h <= 18; h++) {
   });
 }
 
-const SlotDialog = ({ open, onClose, timetableId, subjects, teachers, initial, onSaved }) => {
+const SlotDialog = ({ open, onClose, timetableId, sectionId, teachers, initial, onSaved }) => {
+  const [subjects, setSubjects] = useState([]);
+
+  useEffect(() => {
+    if (!open || !sectionId) return;
+    subjectApi.getAll({ sectionId, limit: 200 })
+      .then(({ data }) => setSubjects(data.data || []))
+      .catch(() => toast.error('Failed to load subjects'));
+  }, [open, sectionId]);
   const [saving, setSaving] = useState(false);
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm();
 
@@ -348,7 +356,7 @@ const TimetablePage = () => {
           open={dialog.open}
           onClose={() => setDialog({ open: false, initial: null })}
           timetableId={timetable?.id}
-          subjects={subjects}
+          sectionId={selectedSection}
           teachers={teachers}
           initial={dialog.initial}
           onSaved={fetchTimetable}

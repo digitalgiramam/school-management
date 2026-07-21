@@ -5,7 +5,7 @@ const { parsePaginationParams } = require('../utils/pagination');
 const subjectService = {
   async getAll(query) {
     const { page, limit, skip, search } = parsePaginationParams(query);
-    const { departmentId, isElective } = query;
+    const { departmentId, isElective, sectionId } = query;
 
     const where = {
       ...(departmentId && { departmentId }),
@@ -17,6 +17,16 @@ const subjectService = {
         ],
       }),
     };
+
+    // If sectionId provided, restrict to subjects assigned to that section
+    if (sectionId) {
+      const assigned = await prisma.teacherSubject.findMany({
+        where: { sectionId },
+        select: { subjectId: true },
+        distinct: ['subjectId'],
+      });
+      where.id = { in: assigned.map((ts) => ts.subjectId) };
+    }
 
     const [items, total] = await Promise.all([
       prisma.subject.findMany({
