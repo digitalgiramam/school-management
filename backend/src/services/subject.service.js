@@ -18,14 +18,18 @@ const subjectService = {
       }),
     };
 
-    // If sectionId provided, restrict to subjects assigned to that section
-    if (sectionId) {
-      const assigned = await prisma.teacherSubject.findMany({
-        where: { sectionId },
+    // If classId provided, restrict to subjects assigned to that class via ClassSubject
+    const classId = query.classId || (sectionId ? await (async () => {
+      const sec = await prisma.section.findUnique({ where: { id: sectionId }, select: { classId: true } });
+      return sec?.classId;
+    })() : null);
+
+    if (classId) {
+      const assigned = await prisma.classSubject.findMany({
+        where: { classId },
         select: { subjectId: true },
-        distinct: ['subjectId'],
       });
-      where.id = { in: assigned.map((ts) => ts.subjectId) };
+      where.id = { in: assigned.map((cs) => cs.subjectId) };
     }
 
     const [items, total] = await Promise.all([

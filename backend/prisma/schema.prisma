@@ -204,10 +204,11 @@ model Class {
   branchId       String
   createdAt      DateTime     @default(now())
 
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
-  branch       Branch       @relation(fields: [branchId], references: [id])
-  sections     Section[]
-  feeStructures FeeStructure[]
+  academicYear   AcademicYear   @relation(fields: [academicYearId], references: [id])
+  branch         Branch         @relation(fields: [branchId], references: [id])
+  sections       Section[]
+  feeStructures  FeeStructure[]
+  classSubjects  ClassSubject[]
 
   @@unique([name, academicYearId, branchId])
   @@map("classes")
@@ -243,13 +244,31 @@ model Subject {
   totalMark    Float   @default(100)
   createdAt    DateTime @default(now())
 
-  department   Department?       @relation(fields: [departmentId], references: [id])
-  timetableSlots TimetableSlot[]
+  department      Department?      @relation(fields: [departmentId], references: [id])
+  timetableSlots  TimetableSlot[]
   teacherSubjects TeacherSubject[]
   examSubjects    ExamSubject[]
   homeworks       Homework[]
+  classSubjects   ClassSubject[]
 
   @@map("subjects")
+}
+
+// ──────────────────────────────────────────────
+// CLASS ↔ SUBJECT MAPPING
+// ──────────────────────────────────────────────
+
+model ClassSubject {
+  id        String   @id @default(cuid())
+  classId   String
+  subjectId String
+  createdAt DateTime @default(now())
+
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, subjectId])
+  @@map("class_subjects")
 }
 
 // ──────────────────────────────────────────────

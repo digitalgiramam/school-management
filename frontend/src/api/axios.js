@@ -257,6 +257,12 @@ export const homeworkApi = {
   grade: (homeworkId, submissionId, data) => api.patch(`/homework/${homeworkId}/submissions/${submissionId}/grade`, data),
 };
 
+export const classSubjectApi = {
+  getByClass: (classId) => api.get('/class-subjects', { params: { classId } }),
+  assign: (classId, subjectId) => api.post('/class-subjects', { classId, subjectId }),
+  remove: (classId, subjectId) => api.delete('/class-subjects', { data: { classId, subjectId } }),
+};
+
 export const settingsApi = {
   getProfile: () => api.get('/settings/profile'),
   updateProfile: (data) => api.put('/settings/profile', data),

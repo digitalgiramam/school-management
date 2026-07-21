@@ -10,7 +10,7 @@ import {
   Assignment, Payment, LibraryBooks, DirectionsBus, Hotel, AccountBalance,
   HomeWork, Assessment, Settings, Logout, Brightness4, Brightness7,
   ChevronLeft, ExpandLess, ExpandMore, Person, Schedule, BeachAccess,
-  Campaign, Notifications, FamilyRestroom,
+  Campaign, Notifications, FamilyRestroom, MenuBook,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useColorMode } from '../../theme/ThemeProvider';
@@ -22,6 +22,7 @@ const navItems = [
   { label: 'Students', icon: <People />, path: '/students' },
   { label: 'Teachers', icon: <School />, path: '/teachers' },
   { label: 'Classes', icon: <Class />, path: '/classes' },
+  { label: 'Class Subjects', icon: <MenuBook />, path: '/class-subjects' },
   { label: 'Parents', icon: <FamilyRestroom />, path: '/parents' },
   { label: 'Attendance', icon: <EventNote />, path: '/attendance' },
   { label: 'Timetable', icon: <Schedule />, path: '/timetable' },
