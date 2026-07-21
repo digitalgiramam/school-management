@@ -34,16 +34,16 @@ const timetableService = {
   async addSlot(timetableId, data) {
     const { dayOfWeek, startTime, endTime, subjectId, teacherId, room } = data;
 
-    // Check teacher conflict
+    if (endTime <= startTime) throw new AppError('End time must be after start time', 400);
+
+    // Check teacher conflict across ALL timetables (single overlap condition covers all cases)
     const conflict = await prisma.timetableSlot.findFirst({
       where: {
-        timetable: { id: { not: timetableId } },
+        timetableId: { not: timetableId },
         dayOfWeek: parseInt(dayOfWeek),
         teacherId,
-        OR: [
-          { startTime: { lte: startTime }, endTime: { gt: startTime } },
-          { startTime: { lt: endTime }, endTime: { gte: endTime } },
-        ],
+        startTime: { lt: endTime },
+        endTime: { gt: startTime },
       },
     });
     if (conflict) throw new AppError('Teacher has a conflicting slot at this time', 400);
@@ -56,7 +56,7 @@ const timetableService = {
         endTime,
         subjectId,
         teacherId,
-        room,
+        room: room || null,
       },
       include: {
         subject: { select: { name: true, code: true } },
@@ -66,14 +66,33 @@ const timetableService = {
   },
 
   async updateSlot(slotId, data) {
+    const { dayOfWeek, startTime, endTime, subjectId, teacherId, room } = data;
+
+    if (endTime <= startTime) throw new AppError('End time must be after start time', 400);
+
+    // Check teacher conflict excluding this slot itself
+    if (teacherId && startTime && endTime && dayOfWeek) {
+      const conflict = await prisma.timetableSlot.findFirst({
+        where: {
+          id: { not: slotId },
+          dayOfWeek: parseInt(dayOfWeek),
+          teacherId,
+          startTime: { lt: endTime },
+          endTime: { gt: startTime },
+        },
+      });
+      if (conflict) throw new AppError('Teacher has a conflicting slot at this time', 400);
+    }
+
     return prisma.timetableSlot.update({
       where: { id: slotId },
       data: {
-        startTime: data.startTime,
-        endTime: data.endTime,
-        subjectId: data.subjectId,
-        teacherId: data.teacherId,
-        room: data.room,
+        dayOfWeek: parseInt(dayOfWeek),
+        startTime,
+        endTime,
+        subjectId,
+        teacherId,
+        room: room || null,
       },
       include: {
         subject: { select: { name: true, code: true } },

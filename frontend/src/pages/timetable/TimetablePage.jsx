@@ -6,13 +6,13 @@ import {
 } from '@mui/material';
 import { Add, Delete, Edit } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
-import { timetableApi, classApi, sectionApi, subjectApi, teacherApi } from '../../api/axios';
+import { timetableApi, classApi, sectionApi, subjectApi, teacherApi, attendanceApi } from '../../api/axios';
 import { settingsApi } from '../../api/axios';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 const DAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const ADMIN_ROLES = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PRINCIPAL', 'TEACHER'];
+const EDIT_ROLES = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PRINCIPAL'];
 
 // time options 07:00–18:30 in 30min steps
 const TIME_OPTIONS = [];
@@ -32,6 +32,10 @@ const SlotDialog = ({ open, onClose, timetableId, subjects, teachers, initial, o
   }, [initial, open, reset]);
 
   const onSubmit = async (data) => {
+    if (data.endTime <= data.startTime) {
+      toast.error('End time must be after start time');
+      return;
+    }
     setSaving(true);
     try {
       if (initial?.id) await timetableApi.updateSlot(initial.id, data);
@@ -116,11 +120,13 @@ const SlotDialog = ({ open, onClose, timetableId, subjects, teachers, initial, o
 
 const TimetablePage = () => {
   const { user } = useAuth();
-  const canEdit = ADMIN_ROLES.includes(user?.role);
+  const canEdit = EDIT_ROLES.includes(user?.role);
+  const isTeacher = user?.role === 'TEACHER';
 
   const [academicYears, setAcademicYears] = useState([]);
   const [classes, setClasses] = useState([]);
   const [sections, setSections] = useState([]);
+  const [allSections, setAllSections] = useState([]); // full list for class filter
   const [subjects, setSubjects] = useState([]);
   const [teachers, setTeachers] = useState([]);
 
@@ -134,27 +140,55 @@ const TimetablePage = () => {
 
   // Load dropdowns
   useEffect(() => {
-    Promise.all([
+    const baseRequests = [
       settingsApi.getAcademicYears(),
-      classApi.getAll({ limit: 200 }),
       subjectApi.getAll({ limit: 200 }),
-      teacherApi.getAll({ limit: 200 }),
-    ]).then(([ay, cls, sub, tch]) => {
-      setAcademicYears(ay.data.data || []);
-      setClasses(cls.data.data || []);
-      setSubjects(sub.data.data || []);
-      setTeachers(tch.data.data || []);
-      const current = ay.data.data?.find((a) => a.isCurrent);
-      if (current) setSelectedAY(current.id);
-    });
-  }, []);
+    ];
+
+    if (isTeacher) {
+      Promise.all([...baseRequests, attendanceApi.getMySections()]).then(([ay, sub, mySections]) => {
+        const mySecs = mySections.data.data || [];
+        const classMap = new Map();
+        mySecs.forEach((s) => { if (s.class) classMap.set(s.class.id, s.class); });
+        setAcademicYears(ay.data.data || []);
+        setClasses(Array.from(classMap.values()));
+        setAllSections(mySecs);
+        setSubjects(sub.data.data || []);
+        const current = ay.data.data?.find((a) => a.isCurrent);
+        if (current) setSelectedAY(current.id);
+        // Auto-select if only one section
+        if (mySecs.length === 1) {
+          setSelectedClass(mySecs[0].class?.id || '');
+          setSections(mySecs);
+          setSelectedSection(mySecs[0].id);
+        }
+      }).catch(() => toast.error('Failed to load timetable data'));
+    } else {
+      Promise.all([...baseRequests, classApi.getAll({ limit: 200 }), teacherApi.getAll({ limit: 200 })]).then(([ay, sub, cls, tch]) => {
+        setAcademicYears(ay.data.data || []);
+        setClasses(cls.data.data || []);
+        setSubjects(sub.data.data || []);
+        setTeachers(tch.data.data || []);
+        const current = ay.data.data?.find((a) => a.isCurrent);
+        if (current) setSelectedAY(current.id);
+      }).catch(() => toast.error('Failed to load timetable data'));
+    }
+  }, [isTeacher]);
 
   useEffect(() => {
+    if (isTeacher) {
+      // Filter from pre-loaded teacher sections
+      const filtered = selectedClass ? allSections.filter((s) => s.classId === selectedClass) : allSections;
+      setSections(filtered);
+      // Clear selectedSection only if it no longer belongs to the filtered set
+      setSelectedSection((prev) => (prev && filtered.find((s) => s.id === prev) ? prev : ''));
+      return;
+    }
     if (!selectedClass) { setSections([]); setSelectedSection(''); return; }
     sectionApi.getAll({ classId: selectedClass, limit: 50 })
       .then(({ data }) => setSections(data.data || []))
       .catch(() => {});
-  }, [selectedClass]);
+  }, [selectedClass, isTeacher, allSections]);
 
   const fetchTimetable = useCallback(async () => {
     if (!selectedSection || !selectedAY) return;
@@ -162,7 +196,10 @@ const TimetablePage = () => {
     try {
       const { data } = await timetableApi.getBySection(selectedSection, selectedAY);
       setTimetable(data.data);
-    } catch { setTimetable(null); }
+    } catch (err) {
+      setTimetable(null);
+      if (err?.response?.status !== 404) toast.error('Failed to load timetable');
+    }
     finally { setLoading(false); }
   }, [selectedSection, selectedAY]);
 
