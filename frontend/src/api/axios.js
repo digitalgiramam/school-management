@@ -201,6 +201,7 @@ export const holidayApi = {
 };
 
 export const attendanceApi = {
+  getMySections: () => api.get('/attendance/my-sections'),
   getBySection: (sectionId, date) => api.get('/attendance', { params: { sectionId, date } }),
   markBulk: (data) => api.post('/attendance/bulk', data),
   getStudentAttendance: (studentId, params) => api.get(`/attendance/student/${studentId}`, { params }),

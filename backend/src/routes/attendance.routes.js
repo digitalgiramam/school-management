@@ -3,12 +3,18 @@ const ctrl = require('../controllers/attendance.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 
 router.use(authenticate);
-const TEACHERS = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PRINCIPAL', 'TEACHER'];
 
-// GET /attendance?sectionId=&date= — get attendance for a section on a date
+const STAFF = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PRINCIPAL', 'TEACHER'];
+
+// Must come before /:param routes
+router.get('/my-sections', ctrl.getMySections);
+
+// GET /attendance?sectionId=&date=
 router.get('/', ctrl.getBySection);
-// POST /attendance/bulk — mark bulk attendance
-router.post('/bulk', authorize(...TEACHERS), ctrl.markBulk);
+
+// POST /attendance/bulk
+router.post('/bulk', authorize(...STAFF), ctrl.markBulk);
+
 // GET /attendance/student/:studentId
 router.get('/student/:studentId', ctrl.getStudentAttendance);
 
