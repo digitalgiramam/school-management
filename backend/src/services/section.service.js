@@ -12,13 +12,18 @@ const sectionService = {
     if (isActive !== undefined) where.isActive = isActive === 'true' || isActive === true;
 
     if (classId) {
-      // Return sections mapped to this class via ClassSection
-      const mappings = await prisma.classSection.findMany({
-        where: { classId },
-        select: { sectionId: true },
-      });
-      const sectionIds = mappings.map((m) => m.sectionId);
-      // Also include sections with direct classId (backward compat)
+      // Try ClassSection mapping first; fall back to direct classId on section
+      let sectionIds = [];
+      try {
+        const mappings = await prisma.classSection.findMany({
+          where: { classId },
+          select: { sectionId: true },
+        });
+        sectionIds = mappings.map((m) => m.sectionId);
+      } catch {
+        // class_sections table may not exist yet (run npx prisma db push)
+      }
+      // Always also include sections with direct classId (backward compat)
       const directSections = await prisma.section.findMany({
         where: { classId, ...where },
         select: { id: true },

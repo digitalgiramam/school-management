@@ -26,11 +26,15 @@ const subjectService = {
     })() : null);
 
     if (classId) {
-      const assigned = await prisma.classSubject.findMany({
-        where: { classId },
-        select: { subjectId: true },
-      });
-      where.id = { in: assigned.map((cs) => cs.subjectId) };
+      try {
+        const assigned = await prisma.classSubject.findMany({
+          where: { classId },
+          select: { subjectId: true },
+        });
+        where.id = { in: assigned.map((cs) => cs.subjectId) };
+      } catch {
+        // class_subjects table may not exist yet (run npx prisma db push)
+      }
     }
 
     const [items, total] = await Promise.all([

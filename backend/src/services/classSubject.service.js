@@ -4,6 +4,9 @@ const { AppError } = require('../utils/errors');
 const classSubjectService = {
   /** Return all subjects assigned to a class, with full subject info */
   async getByClass(classId) {
+    try { await prisma.$queryRaw`SELECT 1 FROM class_subjects LIMIT 1`; }
+    catch { return []; } // table doesn't exist yet — run npx prisma db push
+
     const rows = await prisma.classSubject.findMany({
       where: { classId },
       include: {

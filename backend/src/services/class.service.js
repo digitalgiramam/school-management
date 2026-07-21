@@ -21,7 +21,7 @@ const classService = {
         include: {
           academicYear: { select: { id: true, name: true, isCurrent: true } },
           branch: { select: { id: true, name: true } },
-          _count: { select: { sections: true, classSubjects: true } },
+          _count: { select: { sections: true } },
         },
       }),
       prisma.class.count({ where }),

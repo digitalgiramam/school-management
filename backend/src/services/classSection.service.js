@@ -4,6 +4,9 @@ const { AppError } = require('../utils/errors');
 const classSectionService = {
   /** Get all sections mapped to a class */
   async getByClass(classId) {
+    try { await prisma.$queryRaw`SELECT 1 FROM class_sections LIMIT 1`; }
+    catch { return []; } // table doesn't exist yet — run npx prisma db push
+
     const rows = await prisma.classSection.findMany({
       where: { classId },
       include: {
