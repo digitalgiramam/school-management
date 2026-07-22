@@ -67,11 +67,15 @@ async function main() {
   for (const grade of [6, 7, 8, 9, 10]) {
     sections[grade] = {};
     for (const sec of ['A', 'B']) {
-      sections[grade][sec] = await prisma.section.upsert({
-        where: { name_classId: { name: sec, classId: classes[grade].id } },
-        update: {},
-        create: { name: sec, classId: classes[grade].id, capacity: 40 },
+      let existing = await prisma.section.findFirst({
+        where: { name: sec, classId: classes[grade].id },
       });
+      if (!existing) {
+        existing = await prisma.section.create({
+          data: { name: sec, classId: classes[grade].id, capacity: 40 },
+        });
+      }
+      sections[grade][sec] = existing;
     }
   }
   console.log('✓ 5 classes, 10 sections');
@@ -106,11 +110,13 @@ async function main() {
   ];
   const subjects = {};
   for (const s of subjectList) {
-    subjects[s.code] = await prisma.subject.upsert({
-      where: { code: s.code },
-      update: {},
-      create: { code: s.code, name: s.name, departmentId: depts[s.dept].id, totalMark: 100, passMark: 40 },
-    });
+    let existing = await prisma.subject.findFirst({ where: { code: s.code } });
+    if (!existing) {
+      existing = await prisma.subject.create({
+        data: { code: s.code, name: s.name, departmentId: depts[s.dept].id, totalMark: 100, passMark: 40 },
+      });
+    }
+    subjects[s.code] = existing;
   }
   console.log(`✓ ${subjectList.length} subjects`);
 
