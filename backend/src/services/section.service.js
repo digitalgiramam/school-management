@@ -7,9 +7,17 @@ const sectionService = {
     const { page, limit, skip } = parsePaginationParams(query);
     const { classId, isActive } = query;
 
-    // If classId is provided, use ClassSection mapping (new way) OR fall back to classId on section
+    // masterOnly=true → return only independent master sections (no class) for the Academic Setup tab
+    // By default, return only class-linked sections (classId not null) to avoid orphaned entries in dropdowns
     let where = {};
     if (isActive !== undefined) where.isActive = isActive === 'true' || isActive === true;
+
+    if (query.masterOnly === 'true' || query.masterOnly === true) {
+      where.classId = null;
+    } else if (!classId) {
+      // Default: only show sections that belong to a class (suppress master sections in dropdowns)
+      where.classId = { not: null };
+    }
 
     if (classId) {
       // Try ClassSection mapping first; fall back to direct classId on section

@@ -187,10 +187,8 @@ const SectionsTab = ({ isAdmin }) => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await sectionApi.getAll({ limit: 200 });
-      // Show independent sections (no classId) first, then all
-      const all = data.data || [];
-      setRows(all.filter((s) => !s.classId)); // master sections only
+      const { data } = await sectionApi.getAll({ limit: 200, masterOnly: true });
+      setRows(data.data || []);
     } catch { toast.error('Failed to load sections'); }
     finally { setLoading(false); }
   }, [search]);
@@ -452,12 +450,12 @@ const ClassMappingTab = ({ isAdmin }) => {
   useEffect(() => {
     Promise.all([
       classApi.getAll({ limit: 200 }),
-      sectionApi.getAll({ limit: 200 }),
+      sectionApi.getAll({ limit: 200, masterOnly: true }),
       subjectApi.getAll({ limit: 200 }),
     ]).then(([c, s, sub]) => {
       setClasses(c.data.data || []);
       // Master sections (no classId)
-      setAllSections((s.data.data || []).filter((sec) => !sec.classId && sec.isActive !== false));
+      setAllSections((s.data.data || []).filter((sec) => sec.isActive !== false));
       setAllSubjects((sub.data.data || []).filter((su) => su.isActive !== false));
     }).catch(() => toast.error('Failed to load data'));
   }, []);
