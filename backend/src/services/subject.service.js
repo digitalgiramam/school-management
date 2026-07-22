@@ -67,10 +67,8 @@ const subjectService = {
 
   async create(data) {
     const { name, code, departmentId, isElective, isActive, passMark, totalMark } = data;
-    if (code) {
-      const exists = await prisma.subject.findFirst({ where: { code } });
-      if (exists) throw new AppError('Subject code already exists', 400);
-    }
+    const exists = await prisma.subject.findFirst({ where: { name: { equals: name, mode: 'insensitive' } } });
+    if (exists) throw new AppError('Subject with this name already exists', 400);
     return prisma.subject.create({
       data: {
         name,
@@ -87,6 +85,10 @@ const subjectService = {
 
   async update(id, data) {
     const { name, code, departmentId, isElective, isActive, passMark, totalMark } = data;
+    if (name) {
+      const exists = await prisma.subject.findFirst({ where: { name: { equals: name, mode: 'insensitive' }, NOT: { id } } });
+      if (exists) throw new AppError('Subject with this name already exists', 400);
+    }
     return prisma.subject.update({
       where: { id },
       data: {

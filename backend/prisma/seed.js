@@ -81,42 +81,30 @@ async function main() {
   console.log('✓ 5 classes, 10 sections');
 
   // ── SUBJECTS ──────────────────────────────────────────────────
+  // Global unique subjects — assigned to classes via ClassSubject mapping
   const subjectList = [
-    { code: 'MATH6',  name: 'Mathematics',     dept: 'maths',      grade: 6  },
-    { code: 'ENG6',   name: 'English',          dept: 'humanities', grade: 6  },
-    { code: 'SCI6',   name: 'Science',          dept: 'science',    grade: 6  },
-    { code: 'SST6',   name: 'Social Studies',   dept: 'humanities', grade: 6  },
-    { code: 'CS6',    name: 'Computer Science', dept: 'cs',         grade: 6  },
-    { code: 'MATH7',  name: 'Mathematics',      dept: 'maths',      grade: 7  },
-    { code: 'ENG7',   name: 'English',          dept: 'humanities', grade: 7  },
-    { code: 'SCI7',   name: 'Science',          dept: 'science',    grade: 7  },
-    { code: 'SST7',   name: 'Social Studies',   dept: 'humanities', grade: 7  },
-    { code: 'CS7',    name: 'Computer Science', dept: 'cs',         grade: 7  },
-    { code: 'MATH8',  name: 'Mathematics',      dept: 'maths',      grade: 8  },
-    { code: 'ENG8',   name: 'English',          dept: 'humanities', grade: 8  },
-    { code: 'SCI8',   name: 'Science',          dept: 'science',    grade: 8  },
-    { code: 'SST8',   name: 'Social Studies',   dept: 'humanities', grade: 8  },
-    { code: 'CS8',    name: 'Computer Science', dept: 'cs',         grade: 8  },
-    { code: 'MATH9',  name: 'Mathematics',      dept: 'maths',      grade: 9  },
-    { code: 'ENG9',   name: 'English',          dept: 'humanities', grade: 9  },
-    { code: 'PHY9',   name: 'Physics',          dept: 'science',    grade: 9  },
-    { code: 'CHEM9',  name: 'Chemistry',        dept: 'science',    grade: 9  },
-    { code: 'CS9',    name: 'Computer Science', dept: 'cs',         grade: 9  },
-    { code: 'MATH10', name: 'Mathematics',      dept: 'maths',      grade: 10 },
-    { code: 'ENG10',  name: 'English',          dept: 'humanities', grade: 10 },
-    { code: 'PHY10',  name: 'Physics',          dept: 'science',    grade: 10 },
-    { code: 'CHEM10', name: 'Chemistry',        dept: 'science',    grade: 10 },
-    { code: 'CS10',   name: 'Computer Science', dept: 'cs',         grade: 10 },
+    { code: 'MATH', name: 'Mathematics',     dept: 'maths'      },
+    { code: 'ENG',  name: 'English',          dept: 'humanities' },
+    { code: 'SCI',  name: 'Science',          dept: 'science'    },
+    { code: 'SST',  name: 'Social Studies',   dept: 'humanities' },
+    { code: 'CS',   name: 'Computer Science', dept: 'cs'         },
+    { code: 'PHY',  name: 'Physics',          dept: 'science'    },
+    { code: 'CHEM', name: 'Chemistry',        dept: 'science'    },
+    { code: 'BIO',  name: 'Biology',          dept: 'science'    },
+    { code: 'HIN',  name: 'Hindi',            dept: 'humanities' },
+    { code: 'GEO',  name: 'Geography',        dept: 'humanities' },
   ];
   const subjects = {};
   for (const s of subjectList) {
-    let existing = await prisma.subject.findFirst({ where: { code: s.code } });
-    if (!existing) {
-      existing = await prisma.subject.create({
+    let sub = await prisma.subject.findFirst({ where: { name: s.name } });
+    if (!sub) {
+      sub = await prisma.subject.create({
         data: { code: s.code, name: s.name, departmentId: depts[s.dept].id, totalMark: 100, passMark: 40 },
       });
+    } else {
+      sub = await prisma.subject.update({ where: { id: sub.id }, data: { code: s.code } });
     }
-    subjects[s.code] = existing;
+    subjects[s.code] = sub;
   }
   console.log(`✓ ${subjectList.length} subjects`);
 
@@ -155,21 +143,22 @@ async function main() {
 
   // ── TEACHERS ─────────────────────────────────────────────────
   const teacherDefs = [
-    { email: 'teacher1@school.com', empId: 'EMP001', first: 'Rajesh',  last: 'Kumar',    dept: 'science',    gender: 'MALE',   qual: 'M.Sc Physics',      exp: 8  },
-    { email: 'teacher2@school.com', empId: 'EMP002', first: 'Priya',   last: 'Patel',    dept: 'maths',      gender: 'FEMALE', qual: 'M.Sc Mathematics',   exp: 6  },
-    { email: 'teacher3@school.com', empId: 'EMP003', first: 'Anita',   last: 'Singh',    dept: 'humanities', gender: 'FEMALE', qual: 'M.A. English',       exp: 10 },
-    { email: 'teacher4@school.com', empId: 'EMP004', first: 'Suresh',  last: 'Mehta',    dept: 'humanities', gender: 'MALE',   qual: 'M.A. History',       exp: 5  },
-    { email: 'teacher5@school.com', empId: 'EMP005', first: 'Kavita',  last: 'Reddy',    dept: 'cs',         gender: 'FEMALE', qual: 'M.Tech CS',          exp: 7  },
-    { email: 'teacher6@school.com', empId: 'EMP006', first: 'Mohan',   last: 'Das',      dept: 'maths',      gender: 'MALE',   qual: 'M.Sc Mathematics',   exp: 12 },
-    { email: 'teacher7@school.com', empId: 'EMP007', first: 'Deepa',   last: 'Nair',     dept: 'science',    gender: 'FEMALE', qual: 'M.Sc Chemistry',     exp: 4  },
+    { email: 'teacher1@school.com', empId: 'EMP001', first: 'Rajesh',  last: 'Kumar',    dept: 'science',    gender: 'MALE',   qual: 'M.Sc Physics',      exp: 8,  pi: 10 },
+    { email: 'teacher2@school.com', empId: 'EMP002', first: 'Priya',   last: 'Patel',    dept: 'maths',      gender: 'FEMALE', qual: 'M.Sc Mathematics',   exp: 6,  pi: 11 },
+    { email: 'teacher3@school.com', empId: 'EMP003', first: 'Anita',   last: 'Singh',    dept: 'humanities', gender: 'FEMALE', qual: 'M.A. English',       exp: 10, pi: 12 },
+    { email: 'teacher4@school.com', empId: 'EMP004', first: 'Suresh',  last: 'Mehta',    dept: 'humanities', gender: 'MALE',   qual: 'M.A. History',       exp: 5,  pi: 13 },
+    { email: 'teacher5@school.com', empId: 'EMP005', first: 'Kavita',  last: 'Reddy',    dept: 'cs',         gender: 'FEMALE', qual: 'M.Tech CS',          exp: 7,  pi: 14 },
+    { email: 'teacher6@school.com', empId: 'EMP006', first: 'Mohan',   last: 'Das',      dept: 'maths',      gender: 'MALE',   qual: 'M.Sc Mathematics',   exp: 12, pi: 15 },
+    { email: 'teacher7@school.com', empId: 'EMP007', first: 'Deepa',   last: 'Nair',     dept: 'science',    gender: 'FEMALE', qual: 'M.Sc Chemistry',     exp: 4,  pi: 16 },
   ];
 
   const teachers = {};
   for (const td of teacherDefs) {
+    const photoUrl = `https://randomuser.me/api/portraits/${td.gender === 'MALE' ? 'men' : 'women'}/${td.pi}.jpg`;
     const u = await prisma.user.upsert({
       where: { email: td.email },
-      update: {},
-      create: { email: td.email, password: PASSWORD, role: 'TEACHER', isActive: true, isEmailVerified: true },
+      update: { profilePhoto: photoUrl },
+      create: { email: td.email, password: PASSWORD, role: 'TEACHER', isActive: true, isEmailVerified: true, profilePhoto: photoUrl },
     });
     teachers[td.empId] = await prisma.teacher.upsert({
       where: { userId: u.id },
@@ -301,10 +290,11 @@ async function main() {
   const students = [];
   const studentUserIds = {};
   for (const sd of studentDefs) {
+    const photoUrl = `https://randomuser.me/api/portraits/${sd.gender === 'MALE' ? 'men' : 'women'}/${sd.pi + 20}.jpg`;
     const u = await prisma.user.upsert({
       where: { email: sd.email },
-      update: {},
-      create: { email: sd.email, password: PASSWORD, role: 'STUDENT', isActive: true, isEmailVerified: true },
+      update: { profilePhoto: photoUrl },
+      create: { email: sd.email, password: PASSWORD, role: 'STUDENT', isActive: true, isEmailVerified: true, profilePhoto: photoUrl },
     });
     const s = await prisma.student.upsert({
       where: { userId: u.id },
@@ -461,7 +451,7 @@ async function main() {
     },
   });
 
-  const midExamSubjectCodes = ['MATH10', 'ENG10', 'PHY10', 'CHEM10'];
+  const midExamSubjectCodes = ['MATH', 'ENG', 'PHY', 'CHEM'];
   const examSubjectRecords = [];
   for (let idx = 0; idx < midExamSubjectCodes.length; idx++) {
     const code = midExamSubjectCodes[idx];
@@ -482,7 +472,7 @@ async function main() {
     examSubjectRecords.push(es);
   }
 
-  const grade10AStudents = students.filter(s => s.grade === 10 && s.sec === 'A');
+  const grade10AStudents = students.filter(s => s.sectionId === sections[10]['A'].id);
   const baseScores = [88, 74, 92, 66, 79];
   for (const es of examSubjectRecords) {
     for (let i = 0; i < grade10AStudents.length; i++) {
@@ -771,7 +761,7 @@ async function main() {
     data: {
       title: 'Chapter 5 – Laws of Motion: Numericals',
       description: 'Solve all exercise numericals from Chapter 5. Show full working. Submit in the portal.',
-      subjectId: subjects['PHY10'].id,
+      subjectId: subjects['PHY'].id,
       sectionId: sections[10]['A'].id,
       teacherId: teachers['EMP001'].id,
       dueDate: hwDue,

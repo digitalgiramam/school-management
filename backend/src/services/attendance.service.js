@@ -11,10 +11,36 @@ const attendanceService = {
   async getAccessibleSections(userId, role) {
     const ADMINS = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PRINCIPAL'];
     if (ADMINS.includes(role)) {
-      return prisma.section.findMany({
+      // Only return sections that are associated with a class (skip independent master sections)
+      const direct = await prisma.section.findMany({
+        where: { classId: { not: null } },
         include: { class: { select: { id: true, name: true } } },
         orderBy: [{ class: { name: 'asc' } }, { name: 'asc' }],
       });
+      // Also include sections mapped via ClassSection (independent sections assigned to a class)
+      let mappedIds = [];
+      try {
+        const mappings = await prisma.classSection.findMany({
+          select: { sectionId: true },
+        });
+        mappedIds = mappings.map((m) => m.sectionId);
+      } catch { /* class_sections table may not exist yet */ }
+
+      if (mappedIds.length > 0) {
+        const mapped = await prisma.section.findMany({
+          where: { id: { in: mappedIds }, classId: null },
+          include: { class: { select: { id: true, name: true } } },
+          orderBy: { name: 'asc' },
+        });
+        // Combine and deduplicate
+        const seen = new Set(direct.map((s) => s.id));
+        for (const s of mapped) {
+          if (!seen.has(s.id)) { direct.push(s); seen.add(s.id); }
+        }
+      }
+      return direct.sort((a, b) =>
+        (a.class?.name || '').localeCompare(b.class?.name || '') || a.name.localeCompare(b.name)
+      );
     }
 
     if (role === 'TEACHER') {

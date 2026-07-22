@@ -259,6 +259,7 @@ model Subject {
   homeworks       Homework[]
   classSubjects   ClassSubject[]
 
+  @@unique([name])
   @@map("subjects")
 }
 
