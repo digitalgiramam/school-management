@@ -25,41 +25,34 @@ const AttendancePage = () => {
   const isAdmin   = ADMIN_ROLES.includes(user?.role);
   const isTeacher = user?.role === 'TEACHER';
 
-  const [classes,   setClasses]   = useState([]);
-  const [sections,  setSections]  = useState([]);
+  const [classes,     setClasses]     = useState([]);
+  const [sections,    setSections]    = useState([]);
   const [classFilter, setClassFilter] = useState('');
-  const [sectionId, setSectionId] = useState('');
-  const [date,      setDate]      = useState(today());
-  const [records,   setRecords]   = useState([]);
-  const [loading,   setLoading]   = useState(false);
-  const [saving,    setSaving]    = useState(false);
-  const [loaded,    setLoaded]    = useState(false);
+  const [sectionId,   setSectionId]   = useState('');
+  const [date,        setDate]        = useState(today());
+  const [records,     setRecords]     = useState([]);
+  const [loading,     setLoading]     = useState(false);
+  const [saving,      setSaving]      = useState(false);
+  const [loaded,      setLoaded]      = useState(false);
+  const [sectionsLoading, setSectionsLoading] = useState(false);
 
-  // ── Load available sections based on role ─────────────────────
+  // ── Load classes on mount ─────────────────────────────────────
   useEffect(() => {
     if (isAdmin) {
-      // Admins see all classes + sections
-      Promise.all([
-        classApi.getAll({ limit: 200 }),
-        sectionApi.getAll({ limit: 200 }),
-      ]).then(([c, s]) => {
-        setClasses(c.data.data || []);
-        setSections(s.data.data || []);
-      }).catch(() => toast.error('Failed to load classes'));
+      classApi.getAll({ limit: 200 })
+        .then((c) => setClasses(c.data.data || []))
+        .catch(() => toast.error('Failed to load classes'));
     } else if (isTeacher) {
       // Teachers see only their assigned sections
       attendanceApi.getMySections()
         .then(({ data }) => {
           const mySections = data.data || [];
-          // Derive unique classes from the sections
           const classMap = new Map();
           mySections.forEach((s) => {
             if (s.class) classMap.set(s.class.id, s.class);
           });
           setClasses(Array.from(classMap.values()));
           setSections(mySections);
-
-          // Auto-select if only one section
           if (mySections.length === 1) {
             setClassFilter(mySections[0].class?.id || '');
             setSectionId(mySections[0].id);
@@ -69,9 +62,21 @@ const AttendancePage = () => {
     }
   }, [isAdmin, isTeacher]);
 
-  const filteredSections = sections.filter(
-    (s) => !classFilter || s.classId === classFilter
-  );
+  // ── Load sections when class is selected (admin only) ─────────
+  useEffect(() => {
+    if (!isAdmin || !classFilter) {
+      setSections([]);
+      setSectionId('');
+      return;
+    }
+    setSectionsLoading(true);
+    sectionApi.getAll({ classId: classFilter, limit: 200 })
+      .then((s) => setSections(s.data.data || []))
+      .catch(() => toast.error('Failed to load sections'))
+      .finally(() => setSectionsLoading(false));
+  }, [isAdmin, classFilter]);
+
+  const filteredSections = sections;
 
   // ── Load attendance for selected section + date ────────────────
   const loadAttendance = useCallback(async () => {
@@ -156,7 +161,7 @@ const AttendancePage = () => {
             <Grid item xs={12} sm={3}>
               <TextField
                 fullWidth select size="small" label="Class" value={classFilter}
-                onChange={(e) => { setClassFilter(e.target.value); setSectionId(''); setLoaded(false); }}
+                onChange={(e) => { setClassFilter(e.target.value); setSectionId(''); setSections([]); setLoaded(false); }}
               >
                 <MenuItem value="">All Classes</MenuItem>
                 {classes.map((c) => (
@@ -168,10 +173,12 @@ const AttendancePage = () => {
             <Grid item xs={12} sm={3}>
               <TextField
                 fullWidth select size="small" label="Section" value={sectionId}
-                onChange={(e) => setSectionId(e.target.value)}
-                disabled={!classFilter && filteredSections.length === 0}
+                onChange={(e) => { setSectionId(e.target.value); setLoaded(false); }}
+                disabled={!classFilter || sectionsLoading}
               >
-                <MenuItem value="">Select Section</MenuItem>
+                <MenuItem value="">
+                  {!classFilter ? 'Select a class first' : sectionsLoading ? 'Loading…' : 'Select Section'}
+                </MenuItem>
                 {filteredSections.map((s) => (
                   <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
                 ))}
